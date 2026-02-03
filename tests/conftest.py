@@ -6,7 +6,26 @@ from pathlib import Path
 
 import pytest
 
+from src.loading import load_raw_data
+from src.preparation import rename_features
+from src.mappings import FEATURE_NAME_MAPPING
 
-@pytest.fixture
+
+@pytest.fixture(scope="module")
 def raw_csv_path() -> Path:
     return Path(__file__).parent / "fixtures" / "raw_data_mock.csv"
+
+@pytest.fixture(scope="module")
+def raw_df(raw_csv_path):
+    df_test = load_raw_data(
+        str(raw_csv_path.parent),
+        str(raw_csv_path.name)
+    )
+
+    return df_test
+
+@pytest.fixture(scope="module")
+def renamed_df(raw_df):
+    df_test = rename_features(raw_df, FEATURE_NAME_MAPPING)
+
+    return df_test
