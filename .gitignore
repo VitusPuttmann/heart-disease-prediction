@@ -1,4 +1,5 @@
-﻿__pycache__/
+﻿# Configuration, Caches & Tooling
+__pycache__/
 *.pyc
 *.pyo
 .env
@@ -6,3 +7,6 @@
 .vscode/
 .idea/
 .DS_Store
+
+# ML Project
+data/
