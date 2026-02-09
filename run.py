@@ -2,6 +2,8 @@
 Execution entry point of the ML project.
 """
 
+from pathlib import Path
+
 import pandas as pd
 
 from src.config import DIR_RAW_DATA
@@ -13,9 +15,21 @@ from src.mappings import (
 )
 from src.cross_validation import CVConfig, iter_cv_folds
 from src.training import split_dataset
-from src.models.xgboost_tree import (
-    DC_PARAMS, fit_xgboost_tree, evaluate_xgboost_tree, predict_xgboost_tree
+from src.models.regression import (
+    fit_regression, evaluate_regression, predict_regression
 )
+from src.models.xgboost_gbdt import (
+    DC_PARAMS, fit_xgboost_gbdt, evaluate_xgboost_gbdt, predict_xgboost_gbdt
+)
+
+
+##  ----------------                                    ----------------  ##
+##  -> Define model
+MODEL = "regression"
+##  -> Define submission
+CREATE_SUBMISSION = True
+SUBMISSION_NAME = "2026-02-09_submission_03"
+##  ----------------                                    ----------------  ##
 
 
 RAW_TRAIN_DATA = "train.csv"
@@ -30,20 +44,26 @@ CV_CFG = CVConfig(
     stratify=True
 )
 
-MODEL = "xgboost_tree"
-
 MODEL_DICT = {
-    "xgboost_tree": {
+        "regression": {
+        "params": None,
+        "onehotencode": True,
+        "fit": fit_regression,
+        "eval": evaluate_regression,
+        "pred": predict_regression
+    },
+    "xgboost_gbdt": {
         "params": DC_PARAMS,
         "onehotencode": True,
-        "fit": fit_xgboost_tree,
-        "eval": evaluate_xgboost_tree,
-        "pred": predict_xgboost_tree
+        "fit": fit_xgboost_gbdt,
+        "eval": evaluate_xgboost_gbdt,
+        "pred": predict_xgboost_gbdt
     }
 }
 
 PARAMS = MODEL_DICT[MODEL]["params"]
 ONEHOTENCODE = MODEL_DICT[MODEL]["onehotencode"]
+
 
 if __name__ == "__main__":
     """
@@ -143,3 +163,37 @@ if __name__ == "__main__":
     )
         
     output_df.to_csv("output/predictions.csv", index=False)
+
+    # Create submission
+
+    if CREATE_SUBMISSION:
+        dst_dir = Path("submissions", SUBMISSION_NAME)
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        
+        src_file = Path("src/models", f"{MODEL}.py")
+        dst_file = Path(dst_dir, f"{MODEL}.py")
+        dst_file.write_bytes(src_file.read_bytes())
+
+        src_file = Path("output", "predictions.csv")
+        dst_file = Path(dst_dir, f"{SUBMISSION_NAME}.csv")
+        dst_file.write_bytes(src_file.read_bytes())
+        
+        for file_name in [
+                "run.py",
+                "requirements.txt"
+            ]:
+            src_file = Path(file_name)
+            dst_file = Path(dst_dir, file_name)
+            dst_file.write_bytes(src_file.read_bytes())
+
+        for file_name in [
+                "config.py",
+                "cross_validation.py",
+                "loading.py",
+                "mappings.py",
+                "preparation.py",
+                "training.py"
+            ]:
+            src_file = Path("src", file_name)
+            dst_file = Path(dst_dir, file_name)
+            dst_file.write_bytes(src_file.read_bytes())
