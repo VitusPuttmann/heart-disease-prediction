@@ -15,6 +15,9 @@ from src.mappings import (
 )
 from src.cross_validation import CVConfig, iter_cv_folds
 from src.training import split_dataset
+from src.models.neural_net import (
+    NN_PARAMS, fit_neuralnet, evaluate_neuralnet, predict_neuralnet
+)
 from src.models.regression import (
     fit_regression, evaluate_regression, predict_regression
 )
@@ -24,11 +27,16 @@ from src.models.xgboost_gbdt import (
 
 
 ##  ----------------                                    ----------------  ##
-##  -> Define model
-MODEL = "regression"
+
+##  -> Define model:
+##      neural_net
+##      regression
+##      xgboost_gbdt
+MODEL = "neural_net"
+
 ##  -> Define submission
 CREATE_SUBMISSION = True
-SUBMISSION_NAME = "2026-02-09_submission_03"
+SUBMISSION_NAME = "2026-02-10_submission_04"
 ##  ----------------                                    ----------------  ##
 
 
@@ -45,12 +53,19 @@ CV_CFG = CVConfig(
 )
 
 MODEL_DICT = {
-        "regression": {
-        "params": None,
+    "neural_net": {
+        "params":       NN_PARAMS,
         "onehotencode": True,
-        "fit": fit_regression,
-        "eval": evaluate_regression,
-        "pred": predict_regression
+        "fit":          fit_neuralnet,
+        "eval":         evaluate_neuralnet,
+        "pred":         predict_neuralnet
+    },
+    "regression": {
+        "params":       None,
+        "onehotencode": True,
+        "fit":          fit_regression,
+        "eval":         evaluate_regression,
+        "pred":         predict_regression
     },
     "xgboost_gbdt": {
         "params": DC_PARAMS,
@@ -177,7 +192,7 @@ if __name__ == "__main__":
         src_file = Path("output", "predictions.csv")
         dst_file = Path(dst_dir, f"{SUBMISSION_NAME}.csv")
         dst_file.write_bytes(src_file.read_bytes())
-        
+
         for file_name in [
                 "run.py",
                 "requirements.txt"
