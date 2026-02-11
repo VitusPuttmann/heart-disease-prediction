@@ -38,15 +38,18 @@ def _build_model(n_features: int, params: dict[str, object]) -> keras.Model:
         if drop > 0:
             x = layers.Dropout(drop)(x)
     
-    outputs = layers.Dense(1, activation="linear")(x)
+    outputs = layers.Dense(1, activation="sigmoid")(x)
 
     model = keras.Model(inputs=inputs, outputs=outputs)
 
     lr = params["learning_rate"]
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=lr),
-        loss="mse",
-        metrics=[keras.metrics.MeanSquaredError(name="mse")]
+        loss="binary_crossentropy",
+        metrics=[
+            keras.metrics.AUC(name="auc"),
+            keras.metrics.BinaryAccuracy(name="acc")
+        ]
     )
 
     return model
@@ -58,7 +61,7 @@ def fit_neuralnet(
         params: dict[str, object]
     ) -> keras.Model:
     """
-    Fit a TensorFlow/Keras neural network regression model.
+    Fit a TensorFlow/Keras neural network binary classification model.
     """
 
     X = train_X.to_numpy(dtype=np.float32)
@@ -82,17 +85,17 @@ def evaluate_neuralnet(
         val_y: pd.Series
     ) -> pd.DataFrame:
     """
-    Evaluate a previously trained neural network model and return MSE.
+    Evaluate a previously trained neural network model and return AUC/ACC.
     """
 
     X = val_X.to_numpy(dtype=np.float32)
     y = val_y.to_numpy(dtype=np.float32).reshape(-1, 1)
 
-    loss, mse = model.evaluate(X, y, verbose=2)
+    loss, auc, acc = model.evaluate(X, y, verbose=2)
 
     scores = pd.DataFrame(
-        [[float(mse)]],
-        columns=["mse"]
+        [[float(auc), float(acc)]],
+        columns=["auc", "acc"]
     )
 
     return scores

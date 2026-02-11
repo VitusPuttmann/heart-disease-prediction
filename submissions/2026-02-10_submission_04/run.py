@@ -18,7 +18,7 @@ from src.training import split_dataset
 from src.models.neural_net import (
     NN_PARAMS, fit_neuralnet, evaluate_neuralnet, predict_neuralnet
 )
-from src.models.regression import (
+from src.models.linear_regression import (
     fit_regression, evaluate_regression, predict_regression
 )
 from src.models.xgboost_gbdt import (
@@ -30,7 +30,7 @@ from src.models.xgboost_gbdt import (
 
 ##  -> Define model:
 ##      neural_net
-##      regression
+##      linear_regression
 ##      xgboost_gbdt
 MODEL = "neural_net"
 
@@ -60,7 +60,7 @@ MODEL_DICT = {
         "eval":         evaluate_neuralnet,
         "pred":         predict_neuralnet
     },
-    "regression": {
+    "linear_regression": {
         "params":       None,
         "onehotencode": True,
         "fit":          fit_regression,

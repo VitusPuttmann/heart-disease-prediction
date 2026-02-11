@@ -69,8 +69,6 @@ def predict_xgboost_gbdt(
     """
 
     dX = xgb.DMatrix(test_X)
-
-    proba = bst.predict(dX)
-    y_pred = pd.Series((proba >= 0.5).astype(int))
-
-    return y_pred
+    y_proba = bst.predict(dX)
+    
+    return pd.Series(y_proba)
