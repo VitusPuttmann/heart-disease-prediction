@@ -15,11 +15,18 @@ from src.mappings import (
 )
 from src.cross_validation import CVConfig, iter_cv_folds
 from src.training import split_dataset
+from src.models.naive_bayes import (
+    fit_naive_bayes, evaluate_naive_bayes, predict_naive_bayes
+)
 from src.models.neural_net import (
     NN_PARAMS, fit_neuralnet, evaluate_neuralnet, predict_neuralnet
 )
-from src.models.regression import (
+from src.models.linear_regression import (
     fit_regression, evaluate_regression, predict_regression
+)
+from src.models.logistic_regression import (
+    LR_PARAMS, fit_logistic_regression, evaluate_logistic_regression,
+    predict_logistic_regression
 )
 from src.models.xgboost_gbdt import (
     DC_PARAMS, fit_xgboost_gbdt, evaluate_xgboost_gbdt, predict_xgboost_gbdt
@@ -29,14 +36,16 @@ from src.models.xgboost_gbdt import (
 ##  ----------------                                    ----------------  ##
 
 ##  -> Define model:
+##      naive_bayes
 ##      neural_net
 ##      regression
 ##      xgboost_gbdt
-MODEL = "neural_net"
+MODEL = "naive_bayes"
 
 ##  -> Define submission
-CREATE_SUBMISSION = True
-SUBMISSION_NAME = "2026-02-10_submission_04"
+CREATE_SUBMISSION = False
+SUBMISSION_NAME = "2026-02-10_submission_05"
+
 ##  ----------------                                    ----------------  ##
 
 
@@ -53,6 +62,13 @@ CV_CFG = CVConfig(
 )
 
 MODEL_DICT = {
+    "naive_bayes": {
+        "params":       None,
+        "onehotencode": True,
+        "fit":          fit_naive_bayes,
+        "eval":         evaluate_naive_bayes,
+        "pred":         predict_naive_bayes
+    },
     "neural_net": {
         "params":       NN_PARAMS,
         "onehotencode": True,
@@ -60,7 +76,7 @@ MODEL_DICT = {
         "eval":         evaluate_neuralnet,
         "pred":         predict_neuralnet
     },
-    "regression": {
+    "linear_regression": {
         "params":       None,
         "onehotencode": True,
         "fit":          fit_regression,
