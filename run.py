@@ -22,11 +22,15 @@ from src.models.neural_net import (
     NN_PARAMS, fit_neuralnet, evaluate_neuralnet, predict_neuralnet
 )
 from src.models.linear_regression import (
-    fit_regression, evaluate_regression, predict_regression
+    fit_linear_regression, evaluate_linear_regression, predict_linear_regression
 )
 from src.models.logistic_regression import (
     LR_PARAMS, fit_logistic_regression, evaluate_logistic_regression,
     predict_logistic_regression
+)
+from src.models.logistic_regression_en import (
+    LREN_PARAMS, fit_logistic_regression_en, evaluate_logistic_regression_en,
+    predict_logistic_regression_en
 )
 from src.models.xgboost_gbdt import (
     DC_PARAMS, fit_xgboost_gbdt, evaluate_xgboost_gbdt, predict_xgboost_gbdt
@@ -38,13 +42,14 @@ from src.models.xgboost_gbdt import (
 ##  -> Define model:
 ##      naive_bayes
 ##      neural_net
-##      regression
+##      linear_regression
+##      logistic_regression
 ##      xgboost_gbdt
-MODEL = "naive_bayes"
+MODEL = "neural_net"
 
 ##  -> Define submission
-CREATE_SUBMISSION = False
-SUBMISSION_NAME = "2026-02-10_submission_05"
+CREATE_SUBMISSION = True
+SUBMISSION_NAME = "2026-02-11_submission_08"
 
 ##  ----------------                                    ----------------  ##
 
@@ -55,7 +60,7 @@ RAW_TEST_DATA = "test.csv"
 LABEL_COL = "heart_disease"
 
 CV_CFG = CVConfig(
-    n_splits=5,
+    n_splits=2,
     shuffle=True,
     random_state=483927,
     stratify=True
@@ -79,16 +84,30 @@ MODEL_DICT = {
     "linear_regression": {
         "params":       None,
         "onehotencode": True,
-        "fit":          fit_regression,
-        "eval":         evaluate_regression,
-        "pred":         predict_regression
+        "fit":          fit_linear_regression,
+        "eval":         evaluate_linear_regression,
+        "pred":         predict_linear_regression
+    },
+        "logistic_regression": {
+        "params":       LR_PARAMS,
+        "onehotencode": True,
+        "fit":          fit_logistic_regression,
+        "eval":         evaluate_logistic_regression,
+        "pred":         predict_logistic_regression
+    },
+        "logistic_regression_en": {
+        "params":       LREN_PARAMS,
+        "onehotencode": True,
+        "fit":          fit_logistic_regression_en,
+        "eval":         evaluate_logistic_regression_en,
+        "pred":         predict_logistic_regression_en
     },
     "xgboost_gbdt": {
-        "params": DC_PARAMS,
+        "params":       DC_PARAMS,
         "onehotencode": True,
-        "fit": fit_xgboost_gbdt,
-        "eval": evaluate_xgboost_gbdt,
-        "pred": predict_xgboost_gbdt
+        "fit":          fit_xgboost_gbdt,
+        "eval":         evaluate_xgboost_gbdt,
+        "pred":         predict_xgboost_gbdt
     }
 }
 
