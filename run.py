@@ -32,6 +32,12 @@ from src.models.logistic_regression_en import (
     LREN_PARAMS, fit_logistic_regression_en, evaluate_logistic_regression_en,
     predict_logistic_regression_en
 )
+from src.models.logistic_regression_en_iso import (
+    LRENI_PARAMS,
+    fit_logistic_regression_en_iso,
+    evaluate_logistic_regression_en_iso,
+    predict_logistic_regression_en_iso
+)
 from src.models.xgboost_gbdt import (
     DC_PARAMS, fit_xgboost_gbdt, evaluate_xgboost_gbdt, predict_xgboost_gbdt
 )
@@ -44,12 +50,14 @@ from src.models.xgboost_gbdt import (
 ##      neural_net
 ##      linear_regression
 ##      logistic_regression
+##      logistic_regression_en
+##      logistic_regression_en_iso
 ##      xgboost_gbdt
-MODEL = "neural_net"
+MODEL = "logistic_regression_en_iso"
 
 ##  -> Define submission
 CREATE_SUBMISSION = True
-SUBMISSION_NAME = "2026-02-11_submission_08"
+SUBMISSION_NAME = "2026-02-11_submission_10"
 
 ##  ----------------                                    ----------------  ##
 
@@ -60,7 +68,7 @@ RAW_TEST_DATA = "test.csv"
 LABEL_COL = "heart_disease"
 
 CV_CFG = CVConfig(
-    n_splits=2,
+    n_splits=5,
     shuffle=True,
     random_state=483927,
     stratify=True
@@ -88,7 +96,7 @@ MODEL_DICT = {
         "eval":         evaluate_linear_regression,
         "pred":         predict_linear_regression
     },
-        "logistic_regression": {
+    "logistic_regression": {
         "params":       LR_PARAMS,
         "onehotencode": True,
         "fit":          fit_logistic_regression,
@@ -101,6 +109,13 @@ MODEL_DICT = {
         "fit":          fit_logistic_regression_en,
         "eval":         evaluate_logistic_regression_en,
         "pred":         predict_logistic_regression_en
+    },
+       "logistic_regression_en_iso": {
+        "params":       LRENI_PARAMS,
+        "onehotencode": True,
+        "fit":          fit_logistic_regression_en_iso,
+        "eval":         evaluate_logistic_regression_en_iso,
+        "pred":         predict_logistic_regression_en_iso
     },
     "xgboost_gbdt": {
         "params":       DC_PARAMS,
