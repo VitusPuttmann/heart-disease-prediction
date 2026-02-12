@@ -2,6 +2,8 @@
 Execution entry point of the ML project.
 """
 
+import time
+
 from pathlib import Path
 import shutil
 
@@ -11,10 +13,6 @@ import pandas as pd
 
 from src.loading import load_raw_data
 from src.preparation import rename_features, numeric_to_string
-from src.mappings import (
-    FEATURE_NAME_MAPPING,
-    FEATURE_CAT_MAPPING
-)
 from src.cross_validation import iter_cv_folds
 from src.training import split_dataset
 from src.logistic_regression import (
@@ -41,7 +39,8 @@ with open("configs/neural_net.yaml", "r") as f:
     NN_PARAMS = yaml.safe_load(f)
 with open("configs/logistic_regression.yaml", "r") as f:
     LR_PARAMS = yaml.safe_load(f)
-
+with open("configs/features.yaml", "r") as f:
+    FEATURES = yaml.safe_load(f)
 
 CV_CONFIG["n_splits"] = RU_CONFIG["cv_splits"]
 
@@ -63,6 +62,7 @@ MODEL_DICT = {
         "store":        store_neural_net
     }
 }
+
 PARAMS = MODEL_DICT[RU_CONFIG["model"]]["params"]
 ONEHOTENCODE = MODEL_DICT[RU_CONFIG["model"]]["onehotencode"]
 
@@ -71,6 +71,9 @@ if __name__ == "__main__":
     """
     Execute ML pipeline.
     """
+
+    # Measure runtime
+    start = time.perf_counter()
 
     # Prepare data
 
@@ -84,22 +87,34 @@ if __name__ == "__main__":
     train_data_raw = load_raw_data(dir_raw_data, raw_train_data)
     test_data_raw  = load_raw_data(dir_raw_data, raw_test_data)
 
+    ## Rename target
+    train_data_renamed = train_data_raw.rename(
+        columns={"Heart Disease": "heart_disease"}
+    )
+    test_data_renamed  = test_data_raw.rename(
+        columns={"Heart Disease": "heart_disease"}
+    )
+
     ## Rename features
-    train_data_renamed = rename_features(train_data_raw, FEATURE_NAME_MAPPING)
-    test_data_renamed  = rename_features(test_data_raw, FEATURE_NAME_MAPPING)
+    feature_name_mapping = {
+        v["name_raw"]: v["name_clean"] for v in FEATURES.values()}
+    train_data_renamed = rename_features(train_data_renamed, feature_name_mapping)
+    test_data_renamed  = rename_features(test_data_renamed, feature_name_mapping)
 
     ## Convert features
     train_data_converted = train_data_renamed.copy()
     test_data_converted  = test_data_renamed.copy()
 
     ### Numeric to string for features
-    for var_name, var_map in FEATURE_CAT_MAPPING.items():
-        train_data_converted = numeric_to_string(
-            train_data_converted, var_name, var_map
-        )
-        test_data_converted = numeric_to_string(
-            test_data_converted, var_name, var_map
-        )
+    for var in FEATURES.values():
+        if var["type_raw"] == "numeric" and var["type_clean"] == "categorical":
+            reversed_value_mapping = {v: k for k, v in var["values"].items()}
+            train_data_converted = numeric_to_string(
+                train_data_converted, var["name_clean"], reversed_value_mapping
+            )
+            test_data_converted = numeric_to_string(
+                test_data_converted, var["name_clean"], reversed_value_mapping
+            )
 
     ### String to numeric for target
     train_data_converted[label_col] = (
@@ -143,7 +158,7 @@ if __name__ == "__main__":
     
     cv_scores = pd.concat(cv_scores_list, axis=0, ignore_index=True)
 
-    cv_scores_table = cv_scores.describe()
+    cv_scores_table = cv_scores.describe().round(5)
     cv_scores_table.to_csv("output/cv_scores.csv")
 
     # Fit full model
@@ -210,3 +225,6 @@ if __name__ == "__main__":
             dst_file.write_bytes(src_file.read_bytes())
 
         MODEL_DICT[model]["store"](full_ml_model, dst_dir, model)
+        
+    end = time.perf_counter()
+    print(f"Runtime: {(end - start) / 60:.1f} m")

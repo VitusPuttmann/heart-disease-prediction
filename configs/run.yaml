@@ -4,8 +4,8 @@
 model: logistic_regression
 
 ## Define number of CV splits (2 for neural net / 5 for logistic regression)
-cv_splits: 5
+cv_splits: 2
 
 ## Define model storage
-store_model: true
-storage_name: logistic_regression_2026-02-12_01
+store_model: false
+storage_name: 
