@@ -3,131 +3,68 @@ Execution entry point of the ML project.
 """
 
 from pathlib import Path
+import shutil
+
+import yaml
 
 import pandas as pd
 
-from src.config import DIR_RAW_DATA
 from src.loading import load_raw_data
 from src.preparation import rename_features, numeric_to_string
 from src.mappings import (
     FEATURE_NAME_MAPPING,
     FEATURE_CAT_MAPPING
 )
-from src.cross_validation import CVConfig, iter_cv_folds
+from src.cross_validation import iter_cv_folds
 from src.training import split_dataset
-from src.models.naive_bayes import (
-    fit_naive_bayes, evaluate_naive_bayes, predict_naive_bayes
+from src.logistic_regression import (
+    fit_logistic_regression,
+    evaluate_logistic_regression,
+    predict_logistic_regression,
+    store_logistic_regression
 )
-from src.models.neural_net import (
-    NN_PARAMS, fit_neuralnet, evaluate_neuralnet, predict_neuralnet
-)
-from src.models.linear_regression import (
-    fit_linear_regression, evaluate_linear_regression, predict_linear_regression
-)
-from src.models.logistic_regression import (
-    LR_PARAMS, fit_logistic_regression, evaluate_logistic_regression,
-    predict_logistic_regression
-)
-from src.models.logistic_regression_en import (
-    LREN_PARAMS, fit_logistic_regression_en, evaluate_logistic_regression_en,
-    predict_logistic_regression_en
-)
-from src.models.logistic_regression_en_iso import (
-    LRENI_PARAMS,
-    fit_logistic_regression_en_iso,
-    evaluate_logistic_regression_en_iso,
-    predict_logistic_regression_en_iso
-)
-from src.models.xgboost_gbdt import (
-    DC_PARAMS, fit_xgboost_gbdt, evaluate_xgboost_gbdt, predict_xgboost_gbdt
+from src.neural_net import (
+    fit_neuralnet,
+    evaluate_neuralnet,
+    predict_neuralnet,
+    store_neural_net
 )
 
 
-##  ----------------                                    ----------------  ##
-
-##  -> Define model:
-##      naive_bayes
-##      neural_net
-##      linear_regression
-##      logistic_regression
-##      logistic_regression_en
-##      logistic_regression_en_iso
-##      xgboost_gbdt
-MODEL = "logistic_regression_en_iso"
-
-##  -> Define submission
-CREATE_SUBMISSION = True
-SUBMISSION_NAME = "2026-02-11_submission_10"
-
-##  ----------------                                    ----------------  ##
+with open("configs/run.yaml", "r") as f:
+    RU_CONFIG = yaml.safe_load(f)
+with open("configs/project.yaml", "r") as f:
+    PR_CONFIG = yaml.safe_load(f)
+with open("configs/cross_validation.yaml", "r") as f:
+    CV_CONFIG = yaml.safe_load(f)
+with open("configs/neural_net.yaml", "r") as f:
+    NN_PARAMS = yaml.safe_load(f)
+with open("configs/logistic_regression.yaml", "r") as f:
+    LR_PARAMS = yaml.safe_load(f)
 
 
-RAW_TRAIN_DATA = "train.csv"
-RAW_TEST_DATA = "test.csv"
-
-LABEL_COL = "heart_disease"
-
-CV_CFG = CVConfig(
-    n_splits=5,
-    shuffle=True,
-    random_state=483927,
-    stratify=True
-)
+CV_CONFIG["n_splits"] = RU_CONFIG["cv_splits"]
 
 MODEL_DICT = {
-    "naive_bayes": {
-        "params":       None,
+    "logistic_regression": {
+        "params":       LR_PARAMS,
         "onehotencode": True,
-        "fit":          fit_naive_bayes,
-        "eval":         evaluate_naive_bayes,
-        "pred":         predict_naive_bayes
+        "fit":          fit_logistic_regression,
+        "eval":         evaluate_logistic_regression,
+        "pred":         predict_logistic_regression,
+        "store":        store_logistic_regression
     },
     "neural_net": {
         "params":       NN_PARAMS,
         "onehotencode": True,
         "fit":          fit_neuralnet,
         "eval":         evaluate_neuralnet,
-        "pred":         predict_neuralnet
-    },
-    "linear_regression": {
-        "params":       None,
-        "onehotencode": True,
-        "fit":          fit_linear_regression,
-        "eval":         evaluate_linear_regression,
-        "pred":         predict_linear_regression
-    },
-    "logistic_regression": {
-        "params":       LR_PARAMS,
-        "onehotencode": True,
-        "fit":          fit_logistic_regression,
-        "eval":         evaluate_logistic_regression,
-        "pred":         predict_logistic_regression
-    },
-        "logistic_regression_en": {
-        "params":       LREN_PARAMS,
-        "onehotencode": True,
-        "fit":          fit_logistic_regression_en,
-        "eval":         evaluate_logistic_regression_en,
-        "pred":         predict_logistic_regression_en
-    },
-       "logistic_regression_en_iso": {
-        "params":       LRENI_PARAMS,
-        "onehotencode": True,
-        "fit":          fit_logistic_regression_en_iso,
-        "eval":         evaluate_logistic_regression_en_iso,
-        "pred":         predict_logistic_regression_en_iso
-    },
-    "xgboost_gbdt": {
-        "params":       DC_PARAMS,
-        "onehotencode": True,
-        "fit":          fit_xgboost_gbdt,
-        "eval":         evaluate_xgboost_gbdt,
-        "pred":         predict_xgboost_gbdt
+        "pred":         predict_neuralnet,
+        "store":        store_neural_net
     }
 }
-
-PARAMS = MODEL_DICT[MODEL]["params"]
-ONEHOTENCODE = MODEL_DICT[MODEL]["onehotencode"]
+PARAMS = MODEL_DICT[RU_CONFIG["model"]]["params"]
+ONEHOTENCODE = MODEL_DICT[RU_CONFIG["model"]]["onehotencode"]
 
 
 if __name__ == "__main__":
@@ -137,9 +74,15 @@ if __name__ == "__main__":
 
     # Prepare data
 
+    ## Load variables
+    dir_raw_data=PR_CONFIG["raw_data_dir"]
+    raw_train_data=PR_CONFIG["raw_train_data"]
+    raw_test_data=PR_CONFIG["raw_test_data"]
+    label_col=PR_CONFIG["label_col"]
+
     ## Load raw data files
-    train_data_raw = load_raw_data(DIR_RAW_DATA, RAW_TRAIN_DATA)
-    test_data_raw  = load_raw_data(DIR_RAW_DATA, RAW_TEST_DATA)
+    train_data_raw = load_raw_data(dir_raw_data, raw_train_data)
+    test_data_raw  = load_raw_data(dir_raw_data, raw_test_data)
 
     ## Rename features
     train_data_renamed = rename_features(train_data_raw, FEATURE_NAME_MAPPING)
@@ -159,8 +102,8 @@ if __name__ == "__main__":
         )
 
     ### String to numeric for target
-    train_data_converted[LABEL_COL] = (
-        train_data_converted[LABEL_COL].map(
+    train_data_converted[label_col] = (
+        train_data_converted[label_col].map(
             {"Absence": 0, "Presence": 1}
         ).astype(int)
     )
@@ -174,14 +117,17 @@ if __name__ == "__main__":
     # Train model
 
     ## Create CV iterator
-    cv_iterator = iter_cv_folds(train_data_prepared, LABEL_COL, CV_CFG)
+    cv_iterator = iter_cv_folds(train_data_prepared, label_col, CV_CONFIG)
 
     ## Train and evaluate model with CV
+
+    model = RU_CONFIG["model"]
+
     cv_scores_list = []
 
     for fold_idx, train_df, val_df in cv_iterator:
-        train_X, train_y = split_dataset(train_df, LABEL_COL)
-        val_X, val_y = split_dataset(val_df, LABEL_COL)
+        train_X, train_y = split_dataset(train_df, label_col)
+        val_X, val_y = split_dataset(val_df, label_col)
         if ONEHOTENCODE:
             train_X = pd.get_dummies(train_X)
             val_X = (
@@ -189,23 +135,27 @@ if __name__ == "__main__":
                 .reindex(columns=train_X.columns, fill_value=0)
             )
         
-        ml_model = MODEL_DICT[MODEL]["fit"](train_X, train_y, PARAMS)
+        ml_model = MODEL_DICT[model]["fit"](train_X, train_y, PARAMS)
 
-        ml_model_scores = MODEL_DICT[MODEL]["eval"](ml_model, val_X, val_y)
+        ml_model_scores = MODEL_DICT[model]["eval"](ml_model, val_X, val_y)
         
         cv_scores_list.append(ml_model_scores)
-                
+    
     cv_scores = pd.concat(cv_scores_list, axis=0, ignore_index=True)
 
-    print(cv_scores.describe())     # For local inspection
+    cv_scores_table = cv_scores.describe()
+    cv_scores_table.to_csv("output/cv_scores.csv")
 
     # Fit full model
+
+    label_col=PR_CONFIG["label_col"]
+    model = RU_CONFIG["model"]
     
-    train_X, train_y = split_dataset(train_data_prepared, LABEL_COL)
+    train_X, train_y = split_dataset(train_data_prepared, label_col)
     if ONEHOTENCODE:
         train_X = pd.get_dummies(train_X)
 
-    full_ml_model = MODEL_DICT[MODEL]["fit"](train_X, train_y, PARAMS)
+    full_ml_model = MODEL_DICT[model]["fit"](train_X, train_y, PARAMS)
 
     # Predict values for test data
     
@@ -218,47 +168,45 @@ if __name__ == "__main__":
             .reindex(columns=train_X.columns, fill_value=0)
         )
     
-    y_pred = MODEL_DICT[MODEL]["pred"](full_ml_model, test_X)
+    y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_X)
     
     output_df = pd.DataFrame(
         {
             "id": test_ids,
-            "Heart Disease": y_pred,
+            "Heart Disease": y_proba,
         }
     )
         
     output_df.to_csv("output/predictions.csv", index=False)
 
-    # Create submission
+    # Store model
+    model = RU_CONFIG["model"]
+    store_model = RU_CONFIG["store_model"]
+    storage_name = RU_CONFIG["storage_name"]
 
-    if CREATE_SUBMISSION:
-        dst_dir = Path("submissions", SUBMISSION_NAME)
+    if store_model:
+        dst_dir = Path("models", storage_name)
         dst_dir.mkdir(parents=True, exist_ok=True)
         
-        src_file = Path("src/models", f"{MODEL}.py")
-        dst_file = Path(dst_dir, f"{MODEL}.py")
-        dst_file.write_bytes(src_file.read_bytes())
-
-        src_file = Path("output", "predictions.csv")
-        dst_file = Path(dst_dir, f"{SUBMISSION_NAME}.csv")
-        dst_file.write_bytes(src_file.read_bytes())
+        for path_name in [
+            "configs",
+            "output",
+            "src"
+        ]:
+            src_path = Path(path_name)
+            dst_path = Path(dst_dir, path_name)
+            shutil.copytree(
+                src=src_path,
+                dst=dst_path,
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
+            )
 
         for file_name in [
-                "run.py",
-                "requirements.txt"
-            ]:
+            "run.py",
+            "requirements.txt"
+        ]:
             src_file = Path(file_name)
             dst_file = Path(dst_dir, file_name)
             dst_file.write_bytes(src_file.read_bytes())
 
-        for file_name in [
-                "config.py",
-                "cross_validation.py",
-                "loading.py",
-                "mappings.py",
-                "preparation.py",
-                "training.py"
-            ]:
-            src_file = Path("src", file_name)
-            dst_file = Path(dst_dir, file_name)
-            dst_file.write_bytes(src_file.read_bytes())
+        MODEL_DICT[model]["store"](full_ml_model, dst_dir, model)

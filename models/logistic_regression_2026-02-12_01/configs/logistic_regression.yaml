@@ -1,0 +1,8 @@
+# Configuration for the logistic regression
+solver: saga
+max_iter: 500
+C: 1.0
+tol: 0.001
+l1_ratio: 0.5
+class_weight: null
+random_state: 907364
