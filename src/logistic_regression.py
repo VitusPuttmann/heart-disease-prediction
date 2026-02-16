@@ -7,10 +7,40 @@ from pathlib import Path
 
 import pandas as pd
 
+import statsmodels.api as sm
+
 import joblib
 from sklearn.linear_model import LogisticRegression
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import roc_auc_score
+
+
+def store_regression_table(
+    train_X: pd.DataFrame,
+    train_y: pd.Series
+):
+    X = train_X.copy()
+
+    cat_cols = X.select_dtypes(
+        include=["object", "string", "category"]
+    ).columns.tolist()
+    if cat_cols:
+        X = pd.get_dummies(X, columns=cat_cols, drop_first=True)
+
+    bool_cols = X.select_dtypes(
+        include=["bool"]
+    ).columns.tolist()
+    for c in bool_cols:
+        X[c] = X[c].astype(int)
+    
+    X = sm.add_constant(X)
+    
+    model = sm.GLM(train_y, X, family=sm.families.Binomial())
+    res = model.fit()
+
+    coef_table = res.summary2().tables[1]
+    
+    coef_table.to_csv("output/reg_table.csv")
 
 
 def fit_logistic_regression(

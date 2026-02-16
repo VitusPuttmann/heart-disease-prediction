@@ -16,6 +16,7 @@ from src.preparation import rename_features, numeric_to_string
 from src.cross_validation import iter_cv_folds
 from src.training import split_dataset
 from src.logistic_regression import (
+    store_regression_table,
     fit_logistic_regression,
     evaluate_logistic_regression,
     predict_logistic_regression,
@@ -171,6 +172,9 @@ if __name__ == "__main__":
         train_X = pd.get_dummies(train_X)
 
     full_ml_model = MODEL_DICT[model]["fit"](train_X, train_y, PARAMS)
+
+    if RU_CONFIG["model"] == "logistic_regression":
+        store_regression_table(train_X, train_y)
 
     # Predict values for test data
     

@@ -4,11 +4,19 @@ Configuration for the unit tests.
 
 from pathlib import Path
 
+import yaml
+
 import pytest
 
 from src.loading import load_raw_data
 from src.preparation import rename_features
-from src.mappings import FEATURE_NAME_MAPPING
+
+
+with open("configs/features.yaml", "r") as f:
+    FEATURES = yaml.safe_load(f)
+
+feature_name_mapping = {
+        v["name_raw"]: v["name_clean"] for v in FEATURES.values()}
 
 
 @pytest.fixture(scope="module")
@@ -26,6 +34,6 @@ def raw_df(raw_csv_path):
 
 @pytest.fixture(scope="module")
 def renamed_df(raw_df):
-    df_test = rename_features(raw_df, FEATURE_NAME_MAPPING)
+    df_test = rename_features(raw_df, feature_name_mapping)
 
     return df_test
