@@ -13,6 +13,7 @@ import pandas as pd
 
 from src.loading import load_raw_data
 from src.preparation import rename_features, numeric_to_string
+from src.features import standardize_feature
 from src.cross_validation import iter_cv_folds
 from src.training import split_dataset
 from src.logistic_regression import (
@@ -126,9 +127,45 @@ if __name__ == "__main__":
 
     ## Engineer and select features
 
-    ### Drop feature 'id'
-    train_data_prepared = train_data_converted.drop(columns=["id"])
-    test_data_prepared  = test_data_converted.drop(columns=["id"])
+    ### Standardize numeric features
+
+    train_data_standardized = train_data_converted.copy()
+    test_data_standardized  = test_data_converted.copy()
+    
+    if RU_CONFIG["standardize"] == True:
+        features_to_standardize = [
+            v["name_clean"]
+            for v in FEATURES.values()
+            if v["type_clean"] == "numeric"
+        ]
+
+        for feat in features_to_standardize:
+            train_data_standardized, mean_, std_ = standardize_feature(
+                train_data_standardized, feat)
+            test_data_standardized, *_ = standardize_feature(
+                test_data_standardized, feat, mean_, std_)
+
+    ### Select features
+
+    train_data_prepared = train_data_standardized.drop(columns=["id"])
+    test_data_prepared  = test_data_standardized.drop(columns=["id"])
+
+    all_feature_columns = [
+        v["name_clean"] for v in FEATURES.values()
+    ]
+
+    selected_feature_columns = [
+        FEATURES[f]["name_clean"]
+        for f, status in RU_CONFIG["features"].items()
+        if status == "include"
+    ]
+
+    drop_columns = list(
+        set(all_feature_columns) - set(selected_feature_columns)
+    )
+
+    train_data_prepared = train_data_prepared.drop(columns=drop_columns)
+    test_data_prepared  = test_data_prepared.drop(columns=drop_columns)
 
     # Train model
 

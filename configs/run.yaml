@@ -9,3 +9,22 @@ cv_splits: 2
 ## Define model storage
 store_model: false
 storage_name: 
+
+## Define features
+features:
+  age: include
+  sex: include
+  chest_pain_type: include
+  blood_pressure: exclude
+  cholesterol: exclude
+  fbs_over_120: exclude
+  ekg_results: exclude
+  max_hr: exclude
+  exercise_angina: exclude
+  st_depression: exclude
+  slope_st: exclude
+  number_vessels_fluro: exclude
+  thallium: exclude
+
+## Define feature engineering
+standardize: true

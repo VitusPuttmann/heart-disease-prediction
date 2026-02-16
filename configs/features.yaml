@@ -15,10 +15,10 @@ sex:
   values:
     female: 0
     male: 1
-chest_pain_type:
+chest_pain:
   description: type of chest pain
   name_raw: Chest pain type
-  name_clean: chest_pain_type
+  name_clean: chest_pain
   type_raw: numeric
   type_clean: categorical
   values:
@@ -49,10 +49,10 @@ fbs_over_120:
   values:
     "false": 0
     "true": 1
-ekg_results:
+ekg:
   description: resting electrocardiogram results
   name_raw: EKG results
-  name_clean: ekg_results
+  name_clean: ekg
   type_raw: numeric
   type_clean: categorical
   values:
@@ -89,10 +89,10 @@ slope_st:
   type_raw: numeric
   type_clean: numeric
   values: null
-number_vessels_fluro:
+number_vessels:
   description: number of major vessels colored by fluoroscopy
   name_raw: Number of vessels fluro
-  name_clean: number_vessels_fluro
+  name_clean: number_vessels
   type_raw: numeric
   type_clean: numeric
   values: null
