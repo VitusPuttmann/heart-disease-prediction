@@ -13,7 +13,11 @@ import pandas as pd
 
 from src.loading import load_raw_data
 from src.preparation import rename_features, numeric_to_string
-from src.features import standardize_feature, add_polynomial
+from src.features import (
+    standardize_feature,
+    add_polynomial,
+    add_interaction_term
+)
 from src.cross_validation import iter_cv_folds
 from src.training import split_dataset
 from src.logistic_regression import (
@@ -171,11 +175,13 @@ if __name__ == "__main__":
 
     ### Select features
 
-    train_data_prepared = train_data_polynomials.drop(columns=["id"])
+    train_data_prepared = train_data_polynomials.drop(columns=["id"], )
     test_data_prepared  = test_data_polynomials.drop(columns=["id"])
 
     all_feature_columns = [
-        v["name_clean"] for v in FEATURES.values()
+        meta["name_clean"]
+        for meta in FEATURES.values()
+        if meta.get("source") != "interaction"
     ]
 
     selected_feature_columns = [
@@ -206,12 +212,38 @@ if __name__ == "__main__":
         train_X, train_y = split_dataset(train_df, label_col)
         val_X, val_y = split_dataset(val_df, label_col)
         if ONEHOTENCODE:
-            train_X = pd.get_dummies(train_X)
+            train_X = pd.get_dummies(train_X, drop_first=True)
             val_X = (
-                pd.get_dummies(val_X)
+                pd.get_dummies(val_X, drop_first=True)
                 .reindex(columns=train_X.columns, fill_value=0)
             )
+
+        features_interactions = [
+            key
+            for key, meta in FEATURES.items()
+            if (
+                meta.get("source") == "interaction"
+                and RU_CONFIG["features"].get(key) == "include"
+            )
+        ]
+    
+        for feat in features_interactions:
+            train_X = add_interaction_term(
+                train_X,
+                FEATURES[feat]["input"][0],
+                FEATURES[feat]["input"][1],
+                feat
+            )
+            
+            val_X = add_interaction_term(
+                val_X,
+                FEATURES[feat]["input"][0],
+                FEATURES[feat]["input"][1],
+                feat
+            )
         
+        val_X = val_X.reindex(columns=train_X.columns, fill_value=0)
+
         ml_model = MODEL_DICT[model]["fit"](train_X, train_y, PARAMS)
 
         ml_model_scores = MODEL_DICT[model]["eval"](ml_model, val_X, val_y)
@@ -230,8 +262,25 @@ if __name__ == "__main__":
     
     train_X, train_y = split_dataset(train_data_prepared, label_col)
     if ONEHOTENCODE:
-        train_X = pd.get_dummies(train_X)
-
+        train_X = pd.get_dummies(train_X, drop_first=True)
+    
+    features_interactions = [
+        key
+        for key, meta in FEATURES.items()
+        if (
+            meta.get("source") == "interaction"
+            and RU_CONFIG["features"].get(key) == "include"
+        )
+    ]
+    
+    for feat in features_interactions:
+        train_X = add_interaction_term(
+            train_X,
+            FEATURES[feat]["input"][0],
+            FEATURES[feat]["input"][1],
+            feat
+        )
+        
     full_ml_model = MODEL_DICT[model]["fit"](train_X, train_y, PARAMS)
 
     if RU_CONFIG["model"] == "logistic_regression":
@@ -244,10 +293,29 @@ if __name__ == "__main__":
     test_X = test_data_prepared.copy()
     if ONEHOTENCODE:
         test_X = (
-            pd.get_dummies(test_X)
+            pd.get_dummies(test_X, drop_first=True)
             .reindex(columns=train_X.columns, fill_value=0)
         )
     
+    features_interactions = [
+        key
+        for key, meta in FEATURES.items()
+        if (
+            meta.get("source") == "interaction"
+            and RU_CONFIG["features"].get(key) == "include"
+        )
+    ]
+    
+    for feat in features_interactions:
+        test_X = add_interaction_term(
+            test_X,
+            FEATURES[feat]["input"][0],
+            FEATURES[feat]["input"][1],
+            feat
+        )
+    
+    test_X = test_X.reindex(columns=train_X.columns, fill_value=0)
+
     y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_X)
     
     output_df = pd.DataFrame(

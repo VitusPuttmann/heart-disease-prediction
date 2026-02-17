@@ -18,6 +18,17 @@ age_squared:
   type_raw: null
   type_clean: numeric
   values: null
+age_x_sex:
+  description: interaction term between age and sex
+  source: interaction
+  input:
+    - age
+    - sex_male
+  name_raw: null
+  name_clean: age_x_sex
+  type_raw: null
+  type_clean: numeric
+  values: null
 sex:
   description: gender of patient
   source: original

@@ -14,6 +14,7 @@ storage_name: null
 features:
   age: include
   age_squared: include
+  age_x_sex: exclude
   sex: include
   chest_pain: include
   blood_pressure: include

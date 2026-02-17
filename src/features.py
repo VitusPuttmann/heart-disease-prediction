@@ -33,8 +33,8 @@ def standardize_feature(
 
 def add_polynomial(
     df: pd.DataFrame,
-    column_input: str,
-    column_output: str,
+    feature_input: str,
+    feature_output: str,
 ) -> pd.DataFrame:
     """
     Add a polynomial term of a numeric feature.
@@ -42,6 +42,25 @@ def add_polynomial(
 
     df_poly = df.copy()
 
-    df_poly[column_output] = df_poly[column_input] ** 2
+    df_poly[feature_output] = df_poly[feature_input] ** 2
 
     return df_poly
+
+
+def add_interaction_term(
+    df: pd.DataFrame,
+    feature_input_1: str,
+    feature_input_2: str,
+    feature_output: str
+) -> pd.DataFrame:
+    """
+    Add an interaction term between two features.
+    """
+
+    df_intt = df.copy()
+    
+    df_intt[feature_output] = (
+        df_intt[feature_input_1] * df_intt[feature_input_2]
+    )
+
+    return df_intt
