@@ -29,3 +29,19 @@ def standardize_feature(
     df_scaled[column] = (df_scaled[column] - mean_) / std_
 
     return df_scaled, mean_, std_
+
+
+def add_polynomial(
+    df: pd.DataFrame,
+    column_input: str,
+    column_output: str,
+) -> pd.DataFrame:
+    """
+    Add a polynomial term of a numeric feature.
+    """
+
+    df_poly = df.copy()
+
+    df_poly[column_output] = df_poly[column_input] ** 2
+
+    return df_poly

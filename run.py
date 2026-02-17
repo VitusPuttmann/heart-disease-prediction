@@ -13,7 +13,7 @@ import pandas as pd
 
 from src.loading import load_raw_data
 from src.preparation import rename_features, numeric_to_string
-from src.features import standardize_feature
+from src.features import standardize_feature, add_polynomial
 from src.cross_validation import iter_cv_folds
 from src.training import split_dataset
 from src.logistic_regression import (
@@ -134,9 +134,9 @@ if __name__ == "__main__":
     
     if RU_CONFIG["standardize"] == True:
         features_to_standardize = [
-            v["name_clean"]
-            for v in FEATURES.values()
-            if v["type_clean"] == "numeric"
+            feat["name_clean"]
+            for feat in FEATURES.values()
+            if feat["type_clean"] == "numeric" and feat["source"] == "original"
         ]
 
         for feat in features_to_standardize:
@@ -145,10 +145,34 @@ if __name__ == "__main__":
             test_data_standardized, *_ = standardize_feature(
                 test_data_standardized, feat, mean_, std_)
 
+    ### Add polynomials
+
+    train_data_polynomials = train_data_standardized.copy()
+    test_data_polynomials  = test_data_standardized.copy()
+
+    features_with_polynomial = [
+        feat["name_clean"]
+        for feat in FEATURES.values()
+        if feat["source"] == "polynomial"
+    ]
+    
+    for feat in features_with_polynomial:
+        train_data_polynomials = add_polynomial(
+            train_data_polynomials,
+            FEATURES[feat]["input"][0],
+            feat
+        )
+
+        test_data_polynomials = add_polynomial(
+            test_data_polynomials,
+            FEATURES[feat]["input"][0],
+            feat
+        )
+
     ### Select features
 
-    train_data_prepared = train_data_standardized.drop(columns=["id"])
-    test_data_prepared  = test_data_standardized.drop(columns=["id"])
+    train_data_prepared = train_data_polynomials.drop(columns=["id"])
+    test_data_prepared  = test_data_polynomials.drop(columns=["id"])
 
     all_feature_columns = [
         v["name_clean"] for v in FEATURES.values()
@@ -196,7 +220,7 @@ if __name__ == "__main__":
     
     cv_scores = pd.concat(cv_scores_list, axis=0, ignore_index=True)
 
-    cv_scores_table = cv_scores.describe().round(5)
+    cv_scores_table = cv_scores.describe()
     cv_scores_table.to_csv("output/cv_scores.csv")
 
     # Fit full model

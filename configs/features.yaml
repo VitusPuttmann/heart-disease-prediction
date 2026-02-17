@@ -1,13 +1,27 @@
 # Features of the ML project
 age:
   description: age of patient in years
+  source: original
+  input: null
   name_raw: Age
   name_clean: age
   type_raw: numeric
   type_clean: numeric
   values: null
+age_squared:
+  description: square of age of patient in years
+  source: polynomial
+  input:
+    - age
+  name_raw: null
+  name_clean: age_squared
+  type_raw: null
+  type_clean: numeric
+  values: null
 sex:
   description: gender of patient
+  source: original
+  input: null
   name_raw: Sex
   name_clean: sex
   type_raw: numeric
@@ -17,6 +31,8 @@ sex:
     male: 1
 chest_pain:
   description: type of chest pain
+  source: original
+  input: null
   name_raw: Chest pain type
   name_clean: chest_pain
   type_raw: numeric
@@ -28,6 +44,8 @@ chest_pain:
     asymptomatic: 4
 blood_pressure:
   description: resting blood pressure in millimeters of mercury
+  source: original
+  input: null
   name_raw: BP
   name_clean: blood_pressure
   type_raw: numeric
@@ -35,15 +53,19 @@ blood_pressure:
   values: null
 cholesterol:
   description: serum cholesterol level in milligrams per deciliter
+  source: original
+  input: null
   name_raw: Cholesterol
   name_clean: cholesterol
   type_raw: numeric
   type_clean: numeric
   values: null
-fbs_over_120:
+blood_sugar:
   description: fasting blood sugar greater than 120 milligrams per deciliter
+  source: original
+  input: null
   name_raw: FBS over 120
-  name_clean: fbs_over_120
+  name_clean: blood_sugar
   type_raw: numeric
   type_clean: categorical
   values:
@@ -51,6 +73,8 @@ fbs_over_120:
     "true": 1
 ekg:
   description: resting electrocardiogram results
+  source: original
+  input: null
   name_raw: EKG results
   name_clean: ekg
   type_raw: numeric
@@ -61,6 +85,8 @@ ekg:
     left ventricular hypertrophy: 2
 max_hr:
   description: maximum heart rate achieved
+  source: original
+  input: null
   name_raw: Max HR
   name_clean: max_hr
   type_raw: numeric
@@ -68,6 +94,8 @@ max_hr:
   values: null
 exercise_angina:
   description: exercise-induced angina
+  source: original
+  input: null
   name_raw: Exercise angina
   name_clean: exercise_angina
   type_raw: numeric
@@ -77,6 +105,8 @@ exercise_angina:
     yes: 1
 st_depression:
   description: st segment depression induced by exercise relative to rest
+  source: original
+  input: null
   name_raw: ST depression
   name_clean: st_depression
   type_raw: numeric
@@ -84,6 +114,8 @@ st_depression:
   values: null
 slope_st:
   description: slope of the peak exercise ST segment
+  source: original
+  input: null
   name_raw: Slope of ST
   name_clean: slope_st
   type_raw: numeric
@@ -91,6 +123,8 @@ slope_st:
   values: null
 number_vessels:
   description: number of major vessels colored by fluoroscopy
+  source: original
+  input: null
   name_raw: Number of vessels fluro
   name_clean: number_vessels
   type_raw: numeric
@@ -98,6 +132,8 @@ number_vessels:
   values: null
 thallium:
   description: Thallium stress test result (categorical medical indicator)
+  source: original
+  input: null
   name_raw: Thallium
   name_clean: thallium
   type_raw: numeric
