@@ -1,0 +1,30 @@
+# Configuration for the ML project run
+
+## Define model: neural_net or logistic_regression
+model: logistic_regression
+
+## Define number of CV splits (2 for neural net / 5 for logistic regression)
+cv_splits: 2
+
+## Define model storage
+store_model: true
+storage_name: logistic_regression_2026-02-16_01
+
+## Define features
+features:
+  age: include
+  sex: include
+  chest_pain: include
+  blood_pressure: include
+  cholesterol: include
+  blood_sugar: include
+  ekg: include
+  max_hr: include
+  exercise_angina: include
+  st_depression: include
+  slope_st: include
+  number_vessels: include
+  thallium: include
+
+## Define feature engineering
+standardize: true

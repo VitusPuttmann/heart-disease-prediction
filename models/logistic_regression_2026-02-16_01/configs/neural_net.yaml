@@ -1,0 +1,11 @@
+# Configuration for the neural net
+hidden_units:
+  - 64
+  - 32
+activation: relu
+dropout: 0.0
+learning_rate: 0.001
+batch_size: 32
+epochs: 50
+verbose: 2
+seed: 834217
