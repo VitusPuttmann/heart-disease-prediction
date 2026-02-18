@@ -1,0 +1,143 @@
+# Features of the ML project
+id:
+  description: unique id as running number
+  source: original
+  input: null
+  name_raw: id
+  name_clean: id
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+age:
+  description: age of patient in years
+  source: original
+  input: null
+  name_raw: Age
+  name_clean: age
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+sex:
+  description: gender of patient
+  source: original
+  input: null
+  name_raw: Sex
+  name_clean: sex
+  type_raw: numeric
+  type_clean: categorical
+  values:
+    female: 0
+    male: 1
+chest_pain:
+  description: type of chest pain
+  source: original
+  input: null
+  name_raw: Chest pain type
+  name_clean: chest_pain
+  type_raw: numeric
+  type_clean: categorical
+  values:
+    typical angina: 1
+    atypical angina: 2
+    non-anginal pain: 3
+    asymptomatic: 4
+blood_pressure:
+  description: resting blood pressure in millimeters of mercury
+  source: original
+  input: null
+  name_raw: BP
+  name_clean: blood_pressure
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+cholesterol:
+  description: serum cholesterol level in milligrams per deciliter
+  source: original
+  input: null
+  name_raw: Cholesterol
+  name_clean: cholesterol
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+rest_blood_sugar:
+  description: fasting blood sugar greater than 120 milligrams per deciliter
+  source: original
+  input: null
+  name_raw: FBS over 120
+  name_clean: rest_blood_sugar
+  type_raw: numeric
+  type_clean: categorical
+  values:
+    "false": 0
+    "true": 1
+ekg:
+  description: resting electrocardiogram results
+  source: original
+  input: null
+  name_raw: EKG results
+  name_clean: ekg
+  type_raw: numeric
+  type_clean: categorical
+  values:
+    normal: 0
+    st-t wave abnormality: 1
+    left ventricular hypertrophy: 2
+max_hr:
+  description: maximum heart rate achieved
+  source: original
+  input: null
+  name_raw: Max HR
+  name_clean: max_hr
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+exercise_angina:
+  description: exercise-induced angina
+  source: original
+  input: null
+  name_raw: Exercise angina
+  name_clean: exercise_angina
+  type_raw: numeric
+  type_clean: categorical
+  values:
+    no: 0
+    yes: 1
+st_depression:
+  description: st segment depression induced by exercise relative to rest
+  source: original
+  input: null
+  name_raw: ST depression
+  name_clean: st_depression
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+slope_st:
+  description: slope of the peak exercise ST segment
+  source: original
+  input: null
+  name_raw: Slope of ST
+  name_clean: slope_st
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+number_vessels:
+  description: number of major vessels colored by fluoroscopy
+  source: original
+  input: null
+  name_raw: Number of vessels fluro
+  name_clean: number_vessels
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+thallium:
+  description: Thallium stress test result (categorical medical indicator)
+  source: original
+  input: null
+  name_raw: Thallium
+  name_clean: thallium
+  type_raw: numeric
+  type_clean: categorical
+  values:
+    normal: 3
+    fixed defect: 6
+    reversible defect: 7

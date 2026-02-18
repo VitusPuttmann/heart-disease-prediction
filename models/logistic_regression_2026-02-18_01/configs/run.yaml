@@ -1,0 +1,79 @@
+ # Configuration for the ML project run
+
+## Define model: neural_net or logistic_regression
+model: logistic_regression
+
+## Define number of CV splits (2 for neural net / 5 for logistic regression)
+cv_splits: 5
+
+## Define model storage
+store_model: true
+storage_name: logistic_regression_2026-02-18_01
+
+## Define features
+features:
+  id: exclude
+  age: include
+  sex: include
+  chest_pain: include
+  blood_pressure: include
+  cholesterol: include
+  rest_blood_sugar: include
+  ekg: include
+  max_hr: include
+  exercise_angina: include
+  st_depression: include
+  slope_st: include
+  number_vessels: include
+  thallium: include
+
+# Define interactions
+interactions:
+# Age
+  - vars: [age, sex]
+    name: itas
+    status: include
+  - vars: [age, chest_pain]
+    name: itacp
+    status: include
+  - vars: [age, exercise_angina]
+    name: itaea
+    status: include
+  - vars: [age, number_vessels]
+    name: itanv
+    status: include
+  - vars: [age, thallium]
+    name: itat
+    status: include
+# Sex
+  - vars: [sex, chest_pain]
+    name: itscp
+    status: include
+  - vars: [sex, ekg]
+    name: itse
+    status: include
+  - vars: [sex, max_hr]
+    name: itsm
+    status: include
+  - vars: [sex, exercise_angina]
+    name: itse
+    status: include
+  - vars: [sex, st_depression]
+    name: itssd
+    status: include
+  - vars: [sex, slope_st]
+    name: itsst
+    status: include
+  - vars: [sex, number_vessels]
+    name: itsn
+    status: include
+  - vars: [sex, thallium]
+    name: itst
+    status: include
+
+# Define polynomials
+poly_features:
+  - age
+
+## Define feature engineering
+standardize: true
