@@ -17,7 +17,8 @@ from sklearn.metrics import roc_auc_score
 
 def store_regression_table(
     train_X: pd.DataFrame,
-    train_y: pd.Series
+    train_y: pd.Series,
+    output_dir: Path
 ):
     X = train_X.copy()
 
@@ -40,7 +41,7 @@ def store_regression_table(
 
     coef_table = res.summary2().tables[1]
     
-    coef_table.to_csv("output/reg_table.csv")
+    coef_table.to_csv(output_dir / "reg_table.csv")
 
 
 def fit_logistic_regression(

@@ -1,4 +1,13 @@
 # Features of the ML project
+id:
+  description: unique id as running number
+  source: original
+  input: null
+  name_raw: id
+  name_clean: id
+  type_raw: numeric
+  type_clean: numeric
+  values: null
 age:
   description: age of patient in years
   source: original
@@ -15,17 +24,6 @@ age_squared:
     - age
   name_raw: null
   name_clean: age_squared
-  type_raw: null
-  type_clean: numeric
-  values: null
-age_x_sex:
-  description: interaction term between age and sex
-  source: interaction
-  input:
-    - age
-    - sex_male
-  name_raw: null
-  name_clean: age_x_sex
   type_raw: null
   type_clean: numeric
   values: null
@@ -71,7 +69,7 @@ cholesterol:
   type_raw: numeric
   type_clean: numeric
   values: null
-blood_sugar:
+rest_blood_sugar:
   description: fasting blood sugar greater than 120 milligrams per deciliter
   source: original
   input: null

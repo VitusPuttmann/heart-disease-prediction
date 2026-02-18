@@ -14,9 +14,7 @@ import pandas as pd
 from src.loading import load_raw_data
 from src.preparation import rename_features, numeric_to_string
 from src.features import (
-    standardize_feature,
-    add_polynomial,
-    add_interaction_term
+    build_preprocess_pipeline
 )
 from src.cross_validation import iter_cv_folds
 from src.training import split_dataset
@@ -53,7 +51,6 @@ CV_CONFIG["n_splits"] = RU_CONFIG["cv_splits"]
 MODEL_DICT = {
     "logistic_regression": {
         "params":       LR_PARAMS,
-        "onehotencode": True,
         "fit":          fit_logistic_regression,
         "eval":         evaluate_logistic_regression,
         "pred":         predict_logistic_regression,
@@ -61,7 +58,6 @@ MODEL_DICT = {
     },
     "neural_net": {
         "params":       NN_PARAMS,
-        "onehotencode": True,
         "fit":          fit_neuralnet,
         "eval":         evaluate_neuralnet,
         "pred":         predict_neuralnet,
@@ -70,7 +66,6 @@ MODEL_DICT = {
 }
 
 PARAMS = MODEL_DICT[RU_CONFIG["model"]]["params"]
-ONEHOTENCODE = MODEL_DICT[RU_CONFIG["model"]]["onehotencode"]
 
 
 if __name__ == "__main__":
@@ -78,7 +73,14 @@ if __name__ == "__main__":
     Execute ML pipeline.
     """
 
+    # Define output directory
+
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    output_dir = Path("output") / timestamp
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     # Measure runtime
+
     start = time.perf_counter()
 
     # Prepare data
@@ -103,23 +105,27 @@ if __name__ == "__main__":
 
     ## Rename features
     feature_name_mapping = {
-        v["name_raw"]: v["name_clean"] for v in FEATURES.values()}
-    train_data_renamed = rename_features(train_data_renamed, feature_name_mapping)
-    test_data_renamed  = rename_features(test_data_renamed, feature_name_mapping)
+        feat["name_raw"]: feat["name_clean"] for feat in FEATURES.values()}
+    train_data_renamed = rename_features(
+        train_data_renamed, feature_name_mapping
+    )
+    test_data_renamed = rename_features(
+        test_data_renamed, feature_name_mapping
+    )
 
     ## Convert features
     train_data_converted = train_data_renamed.copy()
     test_data_converted  = test_data_renamed.copy()
 
     ### Numeric to string for features
-    for var in FEATURES.values():
-        if var["type_raw"] == "numeric" and var["type_clean"] == "categorical":
-            reversed_value_mapping = {v: k for k, v in var["values"].items()}
+    for feat in FEATURES.values():
+        if feat["type_raw"] == "numeric" and feat["type_clean"] == "categorical":
+            reversed_value_mapping = {v: k for k, v in feat["values"].items()}
             train_data_converted = numeric_to_string(
-                train_data_converted, var["name_clean"], reversed_value_mapping
+                train_data_converted, feat["name_clean"], reversed_value_mapping
             )
             test_data_converted = numeric_to_string(
-                test_data_converted, var["name_clean"], reversed_value_mapping
+                test_data_converted, feat["name_clean"], reversed_value_mapping
             )
 
     ### String to numeric for target
@@ -129,77 +135,42 @@ if __name__ == "__main__":
         ).astype(int)
     )
 
-    ## Engineer and select features
-
-    ### Standardize numeric features
-
-    train_data_standardized = train_data_converted.copy()
-    test_data_standardized  = test_data_converted.copy()
-    
-    if RU_CONFIG["standardize"] == True:
-        features_to_standardize = [
-            feat["name_clean"]
-            for feat in FEATURES.values()
-            if feat["type_clean"] == "numeric" and feat["source"] == "original"
-        ]
-
-        for feat in features_to_standardize:
-            train_data_standardized, mean_, std_ = standardize_feature(
-                train_data_standardized, feat)
-            test_data_standardized, *_ = standardize_feature(
-                test_data_standardized, feat, mean_, std_)
-
-    ### Add polynomials
-
-    train_data_polynomials = train_data_standardized.copy()
-    test_data_polynomials  = test_data_standardized.copy()
-
-    features_with_polynomial = [
-        feat["name_clean"]
-        for feat in FEATURES.values()
-        if feat["source"] == "polynomial"
-    ]
-    
-    for feat in features_with_polynomial:
-        train_data_polynomials = add_polynomial(
-            train_data_polynomials,
-            FEATURES[feat]["input"][0],
-            feat
-        )
-
-        test_data_polynomials = add_polynomial(
-            test_data_polynomials,
-            FEATURES[feat]["input"][0],
-            feat
-        )
-
-    ### Select features
-
-    train_data_prepared = train_data_polynomials.drop(columns=["id"], )
-    test_data_prepared  = test_data_polynomials.drop(columns=["id"])
-
-    all_feature_columns = [
-        meta["name_clean"]
-        for meta in FEATURES.values()
-        if meta.get("source") != "interaction"
-    ]
+    # Prepare data preprocessing pipeline
 
     selected_feature_columns = [
-        FEATURES[f]["name_clean"]
-        for f, status in RU_CONFIG["features"].items()
+       FEATURES[key]["name_clean"]
+        for key, status in RU_CONFIG["features"].items()
         if status == "include"
     ]
 
-    drop_columns = list(
-        set(all_feature_columns) - set(selected_feature_columns)
-    )
+    num_cols = [
+        FEATURES[key]["name_clean"]
+        for key, status in RU_CONFIG["features"].items()
+        if status == "include"
+        and FEATURES[key]["type_clean"] == "numeric"
+    ]
 
-    train_data_prepared = train_data_prepared.drop(columns=drop_columns)
-    test_data_prepared  = test_data_prepared.drop(columns=drop_columns)
+    cat_cols = [
+        FEATURES[key]["name_clean"]
+        for key, status in RU_CONFIG["features"].items()
+        if status == "include"
+        and FEATURES[key]["type_clean"] == "categorical"
+    ]
+
+    interactions = RU_CONFIG["interactions"]
+
+
+    # Select features
+
+    train_data_prepared = train_data_converted[
+        selected_feature_columns + [label_col]
+    ]
+    test_data_prepared  = test_data_converted[selected_feature_columns]
 
     # Train model
 
     ## Create CV iterator
+    
     cv_iterator = iter_cv_folds(train_data_prepared, label_col, CV_CONFIG)
 
     ## Train and evaluate model with CV
@@ -211,49 +182,28 @@ if __name__ == "__main__":
     for fold_idx, train_df, val_df in cv_iterator:
         train_X, train_y = split_dataset(train_df, label_col)
         val_X, val_y = split_dataset(val_df, label_col)
-        if ONEHOTENCODE:
-            train_X = pd.get_dummies(train_X, drop_first=True)
-            val_X = (
-                pd.get_dummies(val_X, drop_first=True)
-                .reindex(columns=train_X.columns, fill_value=0)
-            )
-
-        features_interactions = [
-            key
-            for key, meta in FEATURES.items()
-            if (
-                meta.get("source") == "interaction"
-                and RU_CONFIG["features"].get(key) == "include"
-            )
-        ]
-    
-        for feat in features_interactions:
-            train_X = add_interaction_term(
-                train_X,
-                FEATURES[feat]["input"][0],
-                FEATURES[feat]["input"][1],
-                feat
-            )
-            
-            val_X = add_interaction_term(
-                val_X,
-                FEATURES[feat]["input"][0],
-                FEATURES[feat]["input"][1],
-                feat
-            )
         
-        val_X = val_X.reindex(columns=train_X.columns, fill_value=0)
+        pre_pipe = build_preprocess_pipeline(
+            num_cols=num_cols,
+            cat_cols=cat_cols,
+            standardize=bool(RU_CONFIG["standardize"]),
+            interactions=interactions,
+        )
 
-        ml_model = MODEL_DICT[model]["fit"](train_X, train_y, PARAMS)
+        train_Xp = pre_pipe.fit_transform(train_X)
+        val_Xp   = pre_pipe.transform(val_X)
 
-        ml_model_scores = MODEL_DICT[model]["eval"](ml_model, val_X, val_y)
+        ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
+
+        ml_model_scores = MODEL_DICT[model]["eval"](ml_model, val_Xp, val_y)
         
         cv_scores_list.append(ml_model_scores)
     
     cv_scores = pd.concat(cv_scores_list, axis=0, ignore_index=True)
 
-    cv_scores_table = cv_scores.describe()
-    cv_scores_table.to_csv("output/cv_scores.csv")
+    cv_scores_table = cv_scores.describe().round(5)
+
+    cv_scores_table.to_csv(output_dir / "cv_scores.csv", index=False)
 
     # Fit full model
 
@@ -261,62 +211,30 @@ if __name__ == "__main__":
     model = RU_CONFIG["model"]
     
     train_X, train_y = split_dataset(train_data_prepared, label_col)
-    if ONEHOTENCODE:
-        train_X = pd.get_dummies(train_X, drop_first=True)
+
+    pre_pipe = build_preprocess_pipeline(
+        num_cols=num_cols,
+        cat_cols=cat_cols,
+        standardize=bool(RU_CONFIG["standardize"]),
+        interactions=interactions,
+    )
+
+    train_Xp = pre_pipe.fit_transform(train_X)
     
-    features_interactions = [
-        key
-        for key, meta in FEATURES.items()
-        if (
-            meta.get("source") == "interaction"
-            and RU_CONFIG["features"].get(key) == "include"
-        )
-    ]
-    
-    for feat in features_interactions:
-        train_X = add_interaction_term(
-            train_X,
-            FEATURES[feat]["input"][0],
-            FEATURES[feat]["input"][1],
-            feat
-        )
-        
-    full_ml_model = MODEL_DICT[model]["fit"](train_X, train_y, PARAMS)
+    full_ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
 
     if RU_CONFIG["model"] == "logistic_regression":
-        store_regression_table(train_X, train_y)
+        store_regression_table(train_Xp, train_y, output_dir)
 
     # Predict values for test data
     
     test_ids = test_data_converted["id"].to_numpy()
 
-    test_X = test_data_prepared.copy()
-    if ONEHOTENCODE:
-        test_X = (
-            pd.get_dummies(test_X, drop_first=True)
-            .reindex(columns=train_X.columns, fill_value=0)
-        )
-    
-    features_interactions = [
-        key
-        for key, meta in FEATURES.items()
-        if (
-            meta.get("source") == "interaction"
-            and RU_CONFIG["features"].get(key) == "include"
-        )
-    ]
-    
-    for feat in features_interactions:
-        test_X = add_interaction_term(
-            test_X,
-            FEATURES[feat]["input"][0],
-            FEATURES[feat]["input"][1],
-            feat
-        )
-    
-    test_X = test_X.reindex(columns=train_X.columns, fill_value=0)
+    test_X = test_data_prepared[selected_feature_columns]
 
-    y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_X)
+    test_Xp = pre_pipe.transform(test_X)
+    
+    y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_Xp)
     
     output_df = pd.DataFrame(
         {
@@ -325,7 +243,7 @@ if __name__ == "__main__":
         }
     )
         
-    output_df.to_csv("output/predictions.csv", index=False)
+    output_df.to_csv(output_dir / "predictions.csv", index=False)
 
     # Store model
     model = RU_CONFIG["model"]

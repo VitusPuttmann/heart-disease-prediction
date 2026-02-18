@@ -1,4 +1,4 @@
-# Configuration for the ML project run
+ # Configuration for the ML project run
 
 ## Define model: neural_net or logistic_regression
 model: logistic_regression
@@ -12,14 +12,14 @@ storage_name: null
 
 ## Define features
 features:
+  id: exclude
   age: include
-  age_squared: include
-  age_x_sex: exclude
+  age_squared: exclude
   sex: include
   chest_pain: include
   blood_pressure: include
   cholesterol: include
-  blood_sugar: include
+  rest_blood_sugar: include
   ekg: include
   max_hr: include
   exercise_angina: include
@@ -27,6 +27,15 @@ features:
   slope_st: include
   number_vessels: include
   thallium: include
+
+# Define interactions
+interactions:
+  - vars: [age, sex]
+    name: age_x_sex
+    status: include
+  - vars: [age, chest_pain]
+    name: age_x_chest_pain
+    status: include
 
 ## Define feature engineering
 standardize: true
