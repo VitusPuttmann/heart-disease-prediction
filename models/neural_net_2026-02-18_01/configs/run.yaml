@@ -1,0 +1,107 @@
+ # Configuration for the ML project run
+
+## Define model: neural_net or logistic_regression
+model: neural_net
+
+## Define number of CV splits (2 for neural net / 5 for logistic regression)
+cv_splits: 2
+
+## Define model storage
+store_model: true
+storage_name: neural_net_2026-02-18_01
+
+## Define features
+features:
+  id: exclude
+  age: include
+  sex: include
+  chest_pain: include
+  blood_pressure: include
+  cholesterol: include
+  rest_blood_sugar: include
+  ekg: include
+  max_hr: include
+  exercise_angina: include
+  st_depression: include
+  slope_st: include
+  number_vessels: include
+  thallium: include
+
+# Define interactions
+interactions:
+# Age
+  - vars: [age, sex]
+    name: itas
+    status: exclude
+  - vars: [age, chest_pain]
+    name: itacp
+    status: exclude
+  - vars: [age, exercise_angina]
+    name: itaea
+    status: exclude
+  - vars: [age, number_vessels]
+    name: itanv
+    status: exclude
+  - vars: [age, thallium]
+    name: itat
+    status: exclude
+# Sex
+  - vars: [sex, chest_pain]
+    name: itscp
+    status: exclude
+  - vars: [sex, ekg]
+    name: itse
+    status: exclude
+  - vars: [sex, max_hr]
+    name: itsm
+    status: exclude
+  - vars: [sex, exercise_angina]
+    name: itse
+    status: exclude
+  - vars: [sex, st_depression]
+    name: itssd
+    status: exclude
+  - vars: [sex, slope_st]
+    name: itsst
+    status: exclude
+  - vars: [sex, number_vessels]
+    name: itsn
+    status: exclude
+  - vars: [sex, thallium]
+    name: itst
+    status: exclude
+# Chest pain
+  - vars: [chest_pain, cholesterol]
+    name: itcc
+    status: exclude
+  - vars: [chest_pain, rest_blood_sugar]
+    name: itcr
+    status: exclude
+  - vars: [chest_pain, ekg]
+    name: itce
+    status: exclude
+  - vars: [chest_pain, max_hr]
+    name: itcm
+    status: exclude
+  - vars: [chest_pain, exercise_angina]
+    name: itce
+    status: exclude
+  - vars: [chest_pain, st_depression]
+    name: itcst
+    status: exclude
+  - vars: [chest_pain, slope_st]
+    name: itcss
+    status: exclude
+  - vars: [chest_pain, number_vessels]
+    name: itcn
+    status: exclude
+  - vars: [chest_pain, thallium]
+    name: itct
+    status: exclude
+
+# Define polynomials
+poly_features:
+  #- age
+
+## Define feature engineering
+standardize: true
