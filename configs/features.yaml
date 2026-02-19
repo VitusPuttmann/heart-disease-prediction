@@ -147,6 +147,93 @@ thallium:
     normal: 3
     fixed defect: 6
     reversible defect: 7
+pred_max_hr:
+  description: predicted maximum heart rate based on age (220 - age)
+  source: engineered
+  input: [age]
+  name_raw: null
+  name_clean: pred_max_hr
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+hr_ratio:
+  description: ratio of observed max heart rate to age-predicted max heart rate (max_hr / pred_max_hr)
+  source: engineered
+  input: [max_hr, age]
+  name_raw: null
+  name_clean: hr_ratio
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+hr_deficit:
+  description: difference between age-predicted max heart rate and observed max heart rate (pred_max_hr - max_hr)
+  source: engineered
+  input: [max_hr, age]
+  name_raw: null
+  name_clean: hr_deficit
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+st_per_hr:
+  description: ST depression normalized by max heart rate (st_depression / (max_hr + 1))
+  source: engineered
+  input: [st_depression, max_hr]
+  name_raw: null
+  name_clean: st_per_hr
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+st_x_hr_ratio:
+  description: interaction of ST depression with heart-rate ratio (st_depression * hr_ratio)
+  source: engineered
+  input: [st_depression, max_hr, age]
+  name_raw: null
+  name_clean: st_x_hr_ratio
+  type_raw: numeric
+  type_clean: numeric
+  values: null
+high_bp:
+  description: blood pressude equal to or above 140
+  source: engineered
+  input: [blood_pressure]
+  name_raw: null
+  name_clean: high_bp
+  type_raw: numeric
+  type_clean: categorical
+  values:
+    no: 0
+    yes: 1
+chol_high:
+  description: cholesterol at or above threshold (default 240 mg/dL or fitted quantile threshold)
+  source: engineered
+  input: [cholesterol]
+  name_raw: null
+  name_clean: chol_high
+  type_raw: numeric
+  type_clean: categorical
+  values:
+    no: 0
+    yes: 1
+fbs_high:
+  description: fasting blood sugar over 120
+  source: engineered
+  input: [rest_blood_sugar]
+  name_raw: null
+  name_clean: fbs_high
+  type_raw: numeric
+  type_clean: categorical
+  values:
+    no: 0
+    yes: 1
+risk_count:
+  description: additive risk count
+  source: engineered
+  input: [blood_pressure, cholesterol, rest_blood_sugar, exercise_angina, number_vessels, thallium]
+  name_raw: null
+  name_clean: risk_count
+  type_raw: numeric
+  type_clean: numeric
+  values: null
 
 # Interaction terms
 interactions:
@@ -256,3 +343,9 @@ interactions:
 # Number vessels
   - name: number_vessels_x_thallium
     vars: [number_vessels, thallium]
+# ST per heart rate
+  - name: st_per_hr_x_exercise_angina
+    vars: [st_per_hr, exercise_angina]
+# Heart rate deficit
+  - name: hr_deficit_x_exercise_angina
+    vars: [hr_deficit, exercise_angina]

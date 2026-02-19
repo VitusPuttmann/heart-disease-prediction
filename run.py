@@ -45,6 +45,12 @@ with open("configs/logistic_regression.yaml", "r") as f:
     LR_PARAMS = yaml.safe_load(f)
 with open("configs/features.yaml", "r") as f:
     FEATURES = yaml.safe_load(f)
+FEATURE_KEYS = {
+    k for k, v in FEATURES.items() if isinstance(v, dict) and "name_clean" in v
+}
+
+def is_engineered(k: str) -> bool:
+    return isinstance(FEATURES.get(k), dict) and FEATURES[k].get("source") == "engineered"
 
 CV_CONFIG["n_splits"] = RU_CONFIG["cv_splits"]
 
@@ -122,19 +128,30 @@ if __name__ == "__main__":
     test_data_converted  = test_data_renamed.copy()
 
     ### Numeric to string for features
+
     for feat in FEATURES.values():
         if not isinstance(feat, dict):
             continue
-        if feat["type_raw"] == "numeric" and feat["type_clean"] == "categorical":
+
+        if feat.get("source") != "original":
+            continue
+
+        if feat.get("type_raw") == "numeric" and feat.get("type_clean") == "categorical":
+            var = feat["name_clean"]
+            if var not in train_data_converted.columns:
+                continue
+
             reversed_value_mapping = {v: k for k, v in feat["values"].items()}
+
             train_data_converted = numeric_to_string(
-                train_data_converted, feat["name_clean"], reversed_value_mapping
+                train_data_converted, var, reversed_value_mapping
             )
             test_data_converted = numeric_to_string(
-                test_data_converted, feat["name_clean"], reversed_value_mapping
+                test_data_converted, var, reversed_value_mapping
             )
 
     ### String to numeric for target
+
     train_data_converted[label_col] = (
         train_data_converted[label_col].map(
             {"Absence": 0, "Presence": 1}
@@ -144,42 +161,71 @@ if __name__ == "__main__":
     # Prepare data preprocessing pipeline
 
     selected_feature_columns = [
-       FEATURES[key]["name_clean"]
+        FEATURES[key]["name_clean"]
         for key, status in RU_CONFIG["features"].items()
         if status == 1
+        and key in FEATURE_KEYS
+        and not is_engineered(key)
+    ]
+
+    engineered_cols = [
+        FEATURES[key]["name_clean"]
+        for key, status in RU_CONFIG["features"].items()
+        if status == 1
+        and key in FEATURE_KEYS
+        and is_engineered(key)
     ]
 
     num_cols = [
         FEATURES[key]["name_clean"]
         for key, status in RU_CONFIG["features"].items()
         if status == 1
+        and key in FEATURE_KEYS
         and FEATURES[key]["type_clean"] == "numeric"
+    ]
+
+    winsor_features = [
+        FEATURES[key]["name_clean"]
+        for key, status in RU_CONFIG["winsor_features"].items()
+        if status == 1
+        and key in FEATURE_KEYS
     ]
 
     cat_cols = [
         FEATURES[key]["name_clean"]
         for key, status in RU_CONFIG["features"].items()
         if status == 1
+        and key in FEATURE_KEYS
         and FEATURES[key]["type_clean"] == "categorical"
+        and not is_engineered(key)
     ]
 
     yj_cols = [
-        key
+        FEATURES[key]["name_clean"] if key in FEATURE_KEYS else key
         for key, value in RU_CONFIG["yeojohnson"].items()
         if value == 1
     ]
+    yj_cols = [c for c in yj_cols if c in num_cols]
 
     interactions = [
         {**i, "status": 1}
         for i in FEATURES["interactions"]
-        if RU_CONFIG[i["name"]] == 1
+        if RU_CONFIG.get(i["name"], 0) == 1
     ]
 
     poly_features = [
-        key
+        FEATURES[key]["name_clean"] if key in FEATURE_KEYS else key
         for key, value in RU_CONFIG["poly_features"].items()
         if value == 1
     ]
+    poly_features = [c for c in poly_features if c in num_cols]
+
+    spline_features = [
+        FEATURES[key]["name_clean"] if key in FEATURE_KEYS else key
+        for key, value in RU_CONFIG["spline_features"].items()
+        if value == 1
+    ]
+    spline_features = [c for c in spline_features if c in num_cols]
 
     # Select features
 
@@ -209,8 +255,10 @@ if __name__ == "__main__":
             cat_cols=cat_cols,
             yj_cols=yj_cols,
             standardize=bool(RU_CONFIG["standardize"]),
+            engineered_cols=engineered_cols,
             interactions=interactions,
-            poly_features=poly_features
+            poly_features=poly_features,
+            winsor_cols=winsor_features
         )
 
         train_Xp = pre_pipe.fit_transform(train_X)
@@ -242,8 +290,10 @@ if __name__ == "__main__":
             cat_cols=cat_cols,
             yj_cols=yj_cols,
             standardize=bool(RU_CONFIG["standardize"]),
+            engineered_cols=engineered_cols,
             interactions=interactions,
-            poly_features=poly_features
+            poly_features=poly_features,
+            winsor_cols=winsor_features
         )
 
         train_Xp = pre_pipe.fit_transform(train_X)
@@ -257,7 +307,7 @@ if __name__ == "__main__":
         
         test_ids = test_data_converted["id"].to_numpy()
 
-        test_X = test_data_prepared[selected_feature_columns]
+        test_X = test_data_prepared
 
         test_Xp = pre_pipe.transform(test_X)
         
