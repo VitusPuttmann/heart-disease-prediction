@@ -105,7 +105,11 @@ if __name__ == "__main__":
 
     ## Rename features
     feature_name_mapping = {
-        feat["name_raw"]: feat["name_clean"] for feat in FEATURES.values()}
+        feat["name_raw"]: feat["name_clean"]
+        for feat in FEATURES.values()
+        if isinstance(feat, dict) and "name_raw" in feat and "name_clean" in feat
+    }
+
     train_data_renamed = rename_features(
         train_data_renamed, feature_name_mapping
     )
@@ -119,6 +123,8 @@ if __name__ == "__main__":
 
     ### Numeric to string for features
     for feat in FEATURES.values():
+        if not isinstance(feat, dict):
+            continue
         if feat["type_raw"] == "numeric" and feat["type_clean"] == "categorical":
             reversed_value_mapping = {v: k for k, v in feat["values"].items()}
             train_data_converted = numeric_to_string(
@@ -140,25 +146,40 @@ if __name__ == "__main__":
     selected_feature_columns = [
        FEATURES[key]["name_clean"]
         for key, status in RU_CONFIG["features"].items()
-        if status == "include"
+        if status == 1
     ]
 
     num_cols = [
         FEATURES[key]["name_clean"]
         for key, status in RU_CONFIG["features"].items()
-        if status == "include"
+        if status == 1
         and FEATURES[key]["type_clean"] == "numeric"
     ]
 
     cat_cols = [
         FEATURES[key]["name_clean"]
         for key, status in RU_CONFIG["features"].items()
-        if status == "include"
+        if status == 1
         and FEATURES[key]["type_clean"] == "categorical"
     ]
 
-    interactions = RU_CONFIG["interactions"]
+    yj_cols = [
+        key
+        for key, value in RU_CONFIG["yeojohnson"].items()
+        if value == 1
+    ]
 
+    interactions = [
+        {**i, "status": 1}
+        for i in FEATURES["interactions"]
+        if RU_CONFIG[i["name"]] == 1
+    ]
+
+    poly_features = [
+        key
+        for key, value in RU_CONFIG["poly_features"].items()
+        if value == 1
+    ]
 
     # Select features
 
@@ -186,8 +207,10 @@ if __name__ == "__main__":
         pre_pipe = build_preprocess_pipeline(
             num_cols=num_cols,
             cat_cols=cat_cols,
+            yj_cols=yj_cols,
             standardize=bool(RU_CONFIG["standardize"]),
             interactions=interactions,
+            poly_features=poly_features
         )
 
         train_Xp = pre_pipe.fit_transform(train_X)
@@ -207,75 +230,81 @@ if __name__ == "__main__":
 
     # Fit full model
 
-    label_col=PR_CONFIG["label_col"]
-    model = RU_CONFIG["model"]
+    if RU_CONFIG["fit_model"]:
     
-    train_X, train_y = split_dataset(train_data_prepared, label_col)
-
-    pre_pipe = build_preprocess_pipeline(
-        num_cols=num_cols,
-        cat_cols=cat_cols,
-        standardize=bool(RU_CONFIG["standardize"]),
-        interactions=interactions,
-    )
-
-    train_Xp = pre_pipe.fit_transform(train_X)
-    
-    full_ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
-
-    if RU_CONFIG["model"] == "logistic_regression":
-        store_regression_table(train_Xp, train_y, output_dir)
-
-    # Predict values for test data
-    
-    test_ids = test_data_converted["id"].to_numpy()
-
-    test_X = test_data_prepared[selected_feature_columns]
-
-    test_Xp = pre_pipe.transform(test_X)
-    
-    y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_Xp)
-    
-    output_df = pd.DataFrame(
-        {
-            "id": test_ids,
-            "Heart Disease": y_proba,
-        }
-    )
+        label_col=PR_CONFIG["label_col"]
+        model = RU_CONFIG["model"]
         
-    output_df.to_csv(output_dir / "predictions.csv", index=False)
+        train_X, train_y = split_dataset(train_data_prepared, label_col)
 
-    # Store model
-    model = RU_CONFIG["model"]
-    store_model = RU_CONFIG["store_model"]
-    storage_name = RU_CONFIG["storage_name"]
+        pre_pipe = build_preprocess_pipeline(
+            num_cols=num_cols,
+            cat_cols=cat_cols,
+            yj_cols=yj_cols,
+            standardize=bool(RU_CONFIG["standardize"]),
+            interactions=interactions,
+            poly_features=poly_features
+        )
 
-    if store_model:
-        dst_dir = Path("models", storage_name)
-        dst_dir.mkdir(parents=True, exist_ok=True)
+        train_Xp = pre_pipe.fit_transform(train_X)
         
-        for path_name in [
-            "configs",
-            "output",
-            "src"
-        ]:
-            src_path = Path(path_name)
-            dst_path = Path(dst_dir, path_name)
-            shutil.copytree(
-                src=src_path,
-                dst=dst_path,
-                ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
-            )
+        full_ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
 
-        for file_name in [
-            "run.py",
-            "requirements.txt"
-        ]:
-            src_file = Path(file_name)
-            dst_file = Path(dst_dir, file_name)
-            dst_file.write_bytes(src_file.read_bytes())
+        if RU_CONFIG["model"] == "logistic_regression":
+            store_regression_table(train_Xp, train_y, output_dir)
 
-        MODEL_DICT[model]["store"](full_ml_model, dst_dir, model)
+        # Predict values for test data
         
+        test_ids = test_data_converted["id"].to_numpy()
+
+        test_X = test_data_prepared[selected_feature_columns]
+
+        test_Xp = pre_pipe.transform(test_X)
+        
+        y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_Xp)
+        
+        output_df = pd.DataFrame(
+            {
+                "id": test_ids,
+                "Heart Disease": y_proba,
+            }
+        )
+            
+        output_df.to_csv(output_dir / "predictions.csv", index=False)
+
+        # Store model
+        model = RU_CONFIG["model"]
+        store_model = RU_CONFIG["store_model"]
+        storage_name = RU_CONFIG["storage_name"]
+
+        if store_model:
+            dst_dir = Path("models", storage_name)
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            
+            for path_name in [
+                "configs",
+                "output",
+                "src"
+            ]:
+                src_path = Path(path_name)
+                dst_path = Path(dst_dir, path_name)
+                shutil.copytree(
+                    src=src_path,
+                    dst=dst_path,
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
+                )
+
+            for file_name in [
+                "run.py",
+                "requirements.txt"
+            ]:
+                src_file = Path(file_name)
+                dst_file = Path(dst_dir, file_name)
+                dst_file.write_bytes(src_file.read_bytes())
+
+            MODEL_DICT[model]["store"](full_ml_model, dst_dir, model)
+    
+    # Calculate runtime
+
     end = time.perf_counter()
     print(f"Runtime: {(end - start) / 60:.1f} m")

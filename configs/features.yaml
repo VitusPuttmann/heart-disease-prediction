@@ -1,4 +1,6 @@
 # Features of the ML project
+
+# Original features
 id:
   description: unique id as running number
   source: original
@@ -15,16 +17,6 @@ age:
   name_raw: Age
   name_clean: age
   type_raw: numeric
-  type_clean: numeric
-  values: null
-age_squared:
-  description: square of age of patient in years
-  source: polynomial
-  input:
-    - age
-  name_raw: null
-  name_clean: age_squared
-  type_raw: null
   type_clean: numeric
   values: null
 sex:
@@ -74,7 +66,7 @@ rest_blood_sugar:
   source: original
   input: null
   name_raw: FBS over 120
-  name_clean: blood_sugar
+  name_clean: rest_blood_sugar
   type_raw: numeric
   type_clean: categorical
   values:
@@ -137,8 +129,12 @@ number_vessels:
   name_raw: Number of vessels fluro
   name_clean: number_vessels
   type_raw: numeric
-  type_clean: numeric
-  values: null
+  type_clean: categorical
+  values:
+    zero: 0
+    one: 1
+    two: 2
+    three: 3
 thallium:
   description: Thallium stress test result (categorical medical indicator)
   source: original
@@ -151,3 +147,112 @@ thallium:
     normal: 3
     fixed defect: 6
     reversible defect: 7
+
+# Interaction terms
+interactions:
+# Age
+  - name: age_x_sex
+    vars: [age, sex]
+  - name: age_x_chest_pain
+    vars: [age, chest_pain]
+  - name: age_x_exercise_angina
+    vars: [age, exercise_angina]
+  - name: age_x_slope_st
+    vars: [age, slope_st]
+  - name: age_x_number_vessels
+    vars: [age, number_vessels]
+  - name: age_x_thallium
+    vars: [age, thallium]
+# Sex
+  - name: sex_x_chest_pain
+    vars: [sex, chest_pain]
+  - name: sex_x_ekg
+    vars: [sex, ekg]
+  - name: sex_x_max_hr
+    vars: [sex, max_hr]
+  - name: sex_x_exercise_angina
+    vars: [sex, exercise_angina]
+  - name: sex_x_st_depression
+    vars: [sex, st_depression]
+  - name: sex_x_slope_st
+    vars: [sex, slope_st]
+  - name: sex_x_number_vessels
+    vars: [sex, number_vessels]
+  - name: sex_x_thallium
+    vars: [sex, thallium]
+# Chest pain
+  - name: chest_pain_x_cholesterol
+    vars: [chest_pain, cholesterol]
+  - name: chest_pain_x_rest_blood_sugar
+    vars: [chest_pain, rest_blood_sugar]
+  - name: chest_pain_x_ekg
+    vars: [chest_pain, ekg]
+  - name: chest_pain_x_max_hr
+    vars: [chest_pain, max_hr]
+  - name: chest_pain_x_exercise_angina
+    vars: [chest_pain, exercise_angina]
+  - name: chest_pain_x_st_depression
+    vars: [chest_pain, st_depression]
+  - name: chest_pain_x_slope_st
+    vars: [chest_pain, slope_st]
+  - name: chest_pain_x_number_vessels
+    vars: [chest_pain, number_vessels]
+  - name: chest_pain_x_thallium
+    vars: [chest_pain, thallium]
+# Blood sugar
+  - name: rest_blood_sugar_x_st_depression
+    vars: [rest_blood_sugar, st_depression]
+  - name: rest_blood_sugar_x_slope_st
+    vars: [rest_blood_sugar, slope_st]
+  - name: rest_blood_sugar_x_number_vessels
+    vars: [rest_blood_sugar, number_vessels]
+  - name: rest_blood_sugar_x_thallium
+    vars: [rest_blood_sugar, thallium]
+# EKG results
+  - name: ekg_x_max_hr
+    vars: [ekg, max_hr]
+  - name: ekg_x_exercise_angina
+    vars: [ekg, exercise_angina]
+  - name: ekg_x_st_depression
+    vars: [ekg, st_depression]
+  - name: ekg_x_slope_st
+    vars: [ekg, slope_st]
+  - name: ekg_x_number_vessels
+    vars: [ekg, number_vessels]
+  - name: ekg_x_thallium
+    vars: [ekg, thallium]
+# Heart rate
+  - name: max_hr_x_exercise_angina
+    vars: [max_hr, exercise_angina]
+  - name: max_hr_x_st_depression
+    vars: [max_hr, st_depression]
+  - name: max_hr_x_slope_st
+    vars: [max_hr, slope_st]
+  - name: max_hr_x_number_vessels
+    vars: [max_hr, number_vessels]
+  - name: max_hr_x_thallium
+    vars: [max_hr, thallium]
+# Exercise angina
+  - name: exercise_angina_x_st_depression
+    vars: [exercise_angina, st_depression]
+  - name: exercise_angina_x_slope_st
+    vars: [exercise_angina, slope_st]
+  - name: exercise_angina_x_number_vessels
+    vars: [exercise_angina, number_vessels]
+  - name: exercise_angina_x_thallium
+    vars: [exercise_angina, thallium]
+# ST depression
+  - name: st_depression_x_slope_st
+    vars: [st_depression, slope_st]
+  - name: st_depression_x_number_vessels
+    vars: [st_depression, number_vessels]
+  - name: st_depression_x_thallium
+    vars: [st_depression, thallium]
+# Slope ST
+  - name: slope_st_x_number_vessels
+    vars: [slope_st, number_vessels]
+  - name: slope_st_x_thallium
+    vars: [slope_st, thallium]
+# Number vessels
+  - name: number_vessels_x_thallium
+    vars: [number_vessels, thallium]

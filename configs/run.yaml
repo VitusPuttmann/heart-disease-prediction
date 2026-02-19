@@ -1,41 +1,97 @@
- # Configuration for the ML project run
+# Configuration for the ML project run
 
 ## Define model: neural_net or logistic_regression
 model: logistic_regression
 
 ## Define number of CV splits (2 for neural net / 5 for logistic regression)
-cv_splits: 2
+cv_splits: 5
 
-## Define model storage
-store_model: false
-storage_name: null
+## Define full model storage
+fit_model:    true
+store_model:  true
+storage_name: logistic_regression_2026-02-19_01
 
-## Define features
+## Define features (0 = exclude / 1 = include)
 features:
-  id: exclude
-  age: include
-  age_squared: exclude
-  sex: include
-  chest_pain: include
-  blood_pressure: include
-  cholesterol: include
-  rest_blood_sugar: include
-  ekg: include
-  max_hr: include
-  exercise_angina: include
-  st_depression: include
-  slope_st: include
-  number_vessels: include
-  thallium: include
+  id:                 0
+  age:                1
+  sex:                1
+  chest_pain:         1
+  blood_pressure:     1
+  cholesterol:        1
+  rest_blood_sugar:   1
+  ekg:                1
+  max_hr:             1
+  exercise_angina:    1
+  st_depression:      1
+  slope_st:           1
+  number_vessels:     1
+  thallium:           1
 
-# Define interactions
-interactions:
-  - vars: [age, sex]
-    name: age_x_sex
-    status: include
-  - vars: [age, chest_pain]
-    name: age_x_chest_pain
-    status: include
+## Define Yeo-Johnson transformation (0 = exclude / 1 = include)
+yeojohnson:
+  blood_pressure:     0
+  cholesterol:        0
+  slope_st:           1
 
 ## Define feature engineering
 standardize: true
+
+## Define interactions (0 = exclude / 1 = include)
+age_x_sex:                          0
+age_x_chest_pain:                   0
+age_x_exercise_angina:              0
+age_x_slope_st:                     0
+age_x_number_vessels:               0
+age_x_thallium:                     0
+sex_x_chest_pain:                   0
+sex_x_ekg:                          0
+sex_x_max_hr:                       0
+sex_x_exercise_angina:              0
+sex_x_st_depression:                0
+sex_x_slope_st:                     0
+sex_x_number_vessels:               0
+sex_x_thallium:                     0
+chest_pain_x_cholesterol:           0
+chest_pain_x_rest_blood_sugar:      0
+chest_pain_x_ekg:                   0
+chest_pain_x_max_hr:                1
+chest_pain_x_exercise_angina:       0
+chest_pain_x_st_depression:         0
+chest_pain_x_slope_st:              0
+chest_pain_x_number_vessels:        0
+chest_pain_x_thallium:              0
+rest_blood_sugar_x_st_depression:   0
+rest_blood_sugar_x_slope_st:        0
+rest_blood_sugar_x_number_vessels:  0
+rest_blood_sugar_x_thallium:        0
+ekg_x_max_hr:                       0
+ekg_x_exercise_angina:              0
+ekg_x_st_depression:                0
+ekg_x_slope_st:                     0
+ekg_x_number_vessels:               0
+ekg_x_thallium:                     0
+max_hr_x_exercise_angina:           0
+max_hr_x_st_depression:             0
+max_hr_x_slope_st:                  0
+max_hr_x_number_vessels:            0
+max_hr_x_thallium:                  0
+exercise_angina_x_st_depression:    0
+exercise_angina_x_slope_st:         1
+exercise_angina_x_number_vessels:   0
+exercise_angina_x_thallium:         0
+st_depression_x_slope_st:           1
+st_depression_x_number_vessels:     0
+st_depression_x_thallium:           0
+slope_st_x_number_vessels:          0
+slope_st_x_thallium:                0
+number_vessels_x_thallium:          0
+
+## Define polynomials (0 = exclude / 1 = include)
+poly_features:
+  age:                0
+  blood_pressure:     0
+  cholesterol:        0
+  max_hr:             0
+  st_depression:      0
+  slope_st:           1

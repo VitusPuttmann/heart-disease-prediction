@@ -4,14 +4,18 @@ Pipeline for engineering features.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Optional, Any, Dict, List, Tuple
 
 import pandas as pd
 
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import (
+    OneHotEncoder,
+    StandardScaler,
+    PowerTransformer
+)
 
 
 class SelectedInteractions(BaseEstimator, TransformerMixin):
@@ -38,7 +42,7 @@ class SelectedInteractions(BaseEstimator, TransformerMixin):
         self._plan_: List[tuple[str, str, str]] = []
 
         for spec in self.interactions:
-            if spec["status"] != "include":
+            if spec["status"] != 1:
                 continue
 
             v1, v2 = spec["vars"]
@@ -73,22 +77,72 @@ class SelectedInteractions(BaseEstimator, TransformerMixin):
         return list(input_features) + getattr(self, "_added_cols_", [])
 
 
+class SelectedQuadratics(BaseEstimator, TransformerMixin):
+    def __init__(self, features: List[str], suffix: str = "__sq"):
+        self.features = features
+        self.suffix = suffix
+
+    def fit(self, X: pd.DataFrame, y=None):
+        self._cols_ = [c for c in (self.features or []) if c in X.columns]
+        self._added_cols_ = [f"{c}{self.suffix}" for c in self._cols_]
+        return self
+
+    def transform(self, X: pd.DataFrame):
+        X_out = X.copy()
+        for c in self._cols_:
+            X_out[f"{c}{self.suffix}"] = X_out[c] ** 2
+        return X_out
+
+    def get_feature_names_out(self, input_features=None):
+        input_features = [] if input_features is None else list(input_features)
+        return input_features + getattr(self, "_added_cols_", [])
+
+
 def build_preprocess_pipeline(
     num_cols: List[str],
     cat_cols: List[str],
+    yj_cols: Optional[List[str]],
     standardize: bool,
-    interactions: List[Dict[str, Any]] | None = None
+    interactions: List[Dict[str, Any]] | None = None,
+    poly_features: Optional[List[str]] = None
 ) -> Pipeline:
     """
-    Build a preprocessing pipeline including standardization, one-hot-encoding
-    and adding interaction terms.
+    Build a preprocessing pipeline including Yeo-Johnson transformation,
+    standardization, one-hot-encoding, adding polynomials, and adding
+    interaction terms.
     """
 
+    yj_cols = yj_cols or []
+    yj_cols = [c for c in yj_cols if c in num_cols]
+    other_num_cols = [c for c in num_cols if c not in set(yj_cols)]
+
     num_steps = []
+
+    if yj_cols:
+        yj_ct = ColumnTransformer(
+            transformers=[
+                ("yj", PowerTransformer(
+                    method="yeo-johnson", standardize=False
+                ), yj_cols),
+                ("num_rest", "passthrough", other_num_cols)
+            ],
+            remainder="drop",
+            verbose_feature_names_out=False
+        )
+        num_steps.append(("yeo_johnson", yj_ct))
+    
     if standardize:
         num_steps.append(("scaler", StandardScaler()))
 
-    num_pipe = Pipeline(num_steps) if num_steps else "passthrough"
+    if num_steps:
+        num_pipe = Pipeline(num_steps)
+    elif standardize:
+        num_pipe = Pipeline([("scaler", StandardScaler())])
+    else:
+        num_pipe = "passthrough"
+
+    if isinstance(num_pipe, tuple):
+        num_pipe = Pipeline([num_pipe])
 
     pre = ColumnTransformer(
         transformers=[
@@ -105,8 +159,12 @@ def build_preprocess_pipeline(
 
     steps: List[Tuple[str, BaseEstimator]] = [("pre", pre)]
 
+    poly_features = poly_features or []
+    if poly_features:
+        steps.append(("quad", SelectedQuadratics(features=poly_features)))
+    
     interactions = interactions or []
-    if any(i["status"] == "include" for i in interactions):
+    if any(i["status"] == 1 for i in interactions):
         steps.append(("inter", SelectedInteractions(interactions=interactions)))
 
     return Pipeline(steps)
