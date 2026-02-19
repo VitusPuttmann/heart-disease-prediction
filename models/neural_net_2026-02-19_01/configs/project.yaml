@@ -1,0 +1,11 @@
+# Configuration for the ML project
+
+## Paths
+raw_data_dir: data/raw
+
+## Files
+raw_train_data: train.csv
+raw_test_data: test.csv
+
+## Labels
+label_col: heart_disease
