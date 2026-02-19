@@ -9,7 +9,7 @@ cv_splits: 5
 ## Define full model storage
 fit_model:    true
 store_model:  true
-storage_name: null
+storage_name: logistic_regression_2026-02-20_01
 
 ## Define features (0 = exclude / 1 = include)
 features:
@@ -112,7 +112,7 @@ poly_features:
   cholesterol:        0
   max_hr:             0
   st_depression:      0
-  slope_st:           1  # Keep as 1
+  slope_st:           1
 
 ## Define splines (0 = exclude / 1 = include)
 spline_features:
