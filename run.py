@@ -300,7 +300,10 @@ if __name__ == "__main__":
         
         full_ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
 
-        if RU_CONFIG["model"] == "logistic_regression":
+        if (
+            RU_CONFIG["model"] == "logistic_regression" and
+            RU_CONFIG["store_regression"]
+        ):
             store_regression_table(train_Xp, train_y, output_dir)
 
         # Predict values for test data
