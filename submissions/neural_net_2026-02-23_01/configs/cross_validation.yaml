@@ -1,0 +1,5 @@
+# Configuration for the cross-validation
+n_splits: 5
+stratify: true
+shuffle: true
+random_state: 483927
