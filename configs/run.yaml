@@ -10,7 +10,7 @@ cv_splits: 5
 store_regression:   false
 fit_model:          true
 store_model:        true
-storage_name:       xgboost_2026-02-23_01
+storage_name:       xgboost_2026-02-23_02
 
 ## Define features (0 = exclude / 1 = include)
 features:
