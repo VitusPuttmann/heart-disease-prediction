@@ -31,7 +31,12 @@ from src.neural_net import (
     predict_neuralnet,
     store_neural_net
 )
-
+from src.xgboost import (
+    fit_xgboost,
+    evaluate_xgboost,
+    predict_xgboost,
+    store_xgboost
+)
 
 with open("configs/run.yaml", "r") as f:
     RU_CONFIG = yaml.safe_load(f)
@@ -39,10 +44,12 @@ with open("configs/project.yaml", "r") as f:
     PR_CONFIG = yaml.safe_load(f)
 with open("configs/cross_validation.yaml", "r") as f:
     CV_CONFIG = yaml.safe_load(f)
-with open("configs/neural_net.yaml", "r") as f:
-    NN_PARAMS = yaml.safe_load(f)
 with open("configs/logistic_regression.yaml", "r") as f:
     LR_PARAMS = yaml.safe_load(f)
+with open("configs/neural_net.yaml", "r") as f:
+    NN_PARAMS = yaml.safe_load(f)
+with open("configs/xgboost.yaml", "r") as f:
+    XG_PARAMS = yaml.safe_load(f)
 with open("configs/features.yaml", "r") as f:
     FEATURES = yaml.safe_load(f)
 FEATURE_KEYS = {
@@ -50,7 +57,9 @@ FEATURE_KEYS = {
 }
 
 def is_engineered(k: str) -> bool:
-    return isinstance(FEATURES.get(k), dict) and FEATURES[k].get("source") == "engineered"
+    return isinstance(
+        FEATURES.get(k), dict
+    ) and FEATURES[k].get("source") == "engineered"
 
 CV_CONFIG["n_splits"] = RU_CONFIG["cv_splits"]
 
@@ -68,6 +77,13 @@ MODEL_DICT = {
         "eval":         evaluate_neuralnet,
         "pred":         predict_neuralnet,
         "store":        store_neural_net
+    },
+    "xgboost": {
+        "params":       XG_PARAMS,
+        "fit":          fit_xgboost,
+        "eval":         evaluate_xgboost,
+        "pred":         predict_xgboost,
+        "store":        store_xgboost
     }
 }
 
