@@ -1,0 +1,25 @@
+# Configuration for the RealMLP (tabular-focused MLP)
+hidden_units:
+  - 256
+  - 256
+  - 128
+  - 64
+activation: gelu
+dropout: 0.10
+residual: true
+input_layernorm: true
+layernorm: true
+learning_rate: 0.0003
+weight_decay: 0.0001
+batch_size: 128
+epochs: 50
+verbose: 2
+seed: 234217
+early_stopping: true
+early_stopping_patience: 15
+validation_split: 0.2
+gradient_clipping_norm: 1.0
+loss_function: binary_crossentropy
+output_activation: sigmoid
+learning_rate_schedule: cosine_decay
+warmup_epochs: 5

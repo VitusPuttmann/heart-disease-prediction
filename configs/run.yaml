@@ -1,10 +1,11 @@
 # Configuration for the ML project run
 
-## Define model: neural_net | logistic_regression | xgboost
+## Define model: xgboost | real_mlp | neural_net | logistic_regression
 models: 
   - xgboost
-  - neural_net
-  - logistic_regression
+  #- real_mlp
+  #- neural_net
+  #- logistic_regression
 
 ## Define number of CV splits (2 for neural net / 5 for logistic regression)
 cv_splits: 2
@@ -13,7 +14,7 @@ cv_splits: 2
 store_regression:   false
 fit_model:          true
 store_model:        true
-storage_name:       ensemble_2026-02-24_01
+storage_name:       xgboost_2026-02-24_01
 
 ## Define features (0 = exclude / 1 = include)
 features:

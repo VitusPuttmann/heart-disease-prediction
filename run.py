@@ -31,6 +31,12 @@ from src.neural_net import (
     predict_neuralnet,
     store_neural_net
 )
+from src.real_mlp import (
+    fit_realmlp,
+    evaluate_realmlp,
+    predict_realmlp,
+    store_realmlp
+)
 from src.xgboost import (
     fit_xgboost,
     evaluate_xgboost,
@@ -51,6 +57,8 @@ with open("configs/logistic_regression.yaml", "r") as f:
     LR_PARAMS = yaml.safe_load(f)
 with open("configs/neural_net.yaml", "r") as f:
     NN_PARAMS = yaml.safe_load(f)
+with open("configs/real_mlp.yaml", "r") as f:
+    RM_PARAMS = yaml.safe_load(f)
 with open("configs/xgboost.yaml", "r") as f:
     XG_PARAMS = yaml.safe_load(f)
 with open("configs/features.yaml", "r") as f:
@@ -80,6 +88,13 @@ MODEL_DICT = {
         "eval":         evaluate_neuralnet,
         "pred":         predict_neuralnet,
         "store":        store_neural_net
+    },
+    "real_mlp": {
+        "params":       RM_PARAMS,
+        "fit":          fit_realmlp,
+        "eval":         evaluate_realmlp,
+        "pred":         predict_realmlp,
+        "store":        store_realmlp
     },
     "xgboost": {
         "params":       XG_PARAMS,
@@ -300,7 +315,7 @@ if __name__ == "__main__":
                 winsor_cols=winsor_features
             )
 
-            train_Xp = pre_pipe.fit_transform(train_X)
+            train_Xp = pre_pipe.fit_transform(train_X, train_y)
             val_Xp   = pre_pipe.transform(val_X)
 
             ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
@@ -328,7 +343,7 @@ if __name__ == "__main__":
                 winsor_cols=winsor_features
             )
 
-            train_Xp = pre_pipe.fit_transform(train_X)
+            train_Xp = pre_pipe.fit_transform(train_X, train_y)
             
             full_ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
 
@@ -361,8 +376,8 @@ if __name__ == "__main__":
             
             y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_Xp)
             
-            col_name_1 = "id" + model
-            col_name_2 = "y_proba" + model
+            col_name_1 = f"id_{model}"
+            col_name_2 = f"y_proba_{model}"
 
             output_df[col_name_1] = test_ids
             output_df[col_name_2] = y_proba
@@ -394,15 +409,19 @@ if __name__ == "__main__":
     
     ## Predicted probabilities
 
-    output_df["final_predictions"] = 0
+    output_df["final_predictions"] = 0.0
     num_models = 0
     for model in RU_CONFIG["models"]:
+        col_name = f"y_proba_{model}"
+        if col_name not in output_df.columns:
+            continue
         num_models += 1
-        col_name = "y_proba" + model
         output_df["final_predictions"] += output_df[col_name]
-    output_df["final_predictions"] = output_df["final_predictions"] / num_models
-    output_df.to_csv(output_dir / "predictions.csv", index=False)
 
+    output_df["final_predictions"] = output_df["final_predictions"] / max(num_models, 1)
+
+    output_df.to_csv(output_dir / "predictions.csv", index=False)
+    
     ## Models
 
     if store_model:
