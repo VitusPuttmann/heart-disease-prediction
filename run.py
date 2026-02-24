@@ -87,27 +87,32 @@ MODEL_DICT = {
     }
 }
 
-PARAMS = MODEL_DICT[RU_CONFIG["model"]]["params"]
-
-
 if __name__ == "__main__":
     """
     Execute ML pipeline.
     """
 
-    # Define output directory
+    # Obtain variables
+
+    store_model = RU_CONFIG["store_model"]
+    storage_name = RU_CONFIG["storage_name"]
+
+    # Define output directories
 
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     output_dir = Path("output") / timestamp
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    dst_dir = Path("models", storage_name)
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    
     # Measure runtime
 
     start = time.perf_counter()
 
     # Prepare data
 
-    ## Load variables
+    # Load variables
     dir_raw_data=PR_CONFIG["raw_data_dir"]
     raw_train_data=PR_CONFIG["raw_train_data"]
     raw_test_data=PR_CONFIG["raw_test_data"]
@@ -152,7 +157,9 @@ if __name__ == "__main__":
         if feat.get("source") != "original":
             continue
 
-        if feat.get("type_raw") == "numeric" and feat.get("type_clean") == "categorical":
+        if feat.get(
+            "type_raw"
+        ) == "numeric" and feat.get("type_clean") == "categorical":
             var = feat["name_clean"]
             if var not in train_data_converted.columns:
                 continue
@@ -252,127 +259,144 @@ if __name__ == "__main__":
 
     # Train model
 
-    ## Create CV iterator
-    
-    cv_iterator = iter_cv_folds(train_data_prepared, label_col, CV_CONFIG)
-
-    ## Train and evaluate model with CV
-
-    model = RU_CONFIG["model"]
+    ## Initiate output
 
     cv_scores_list = []
 
-    for fold_idx, train_df, val_df in cv_iterator:
-        train_X, train_y = split_dataset(train_df, label_col)
-        val_X, val_y = split_dataset(val_df, label_col)
+    output_df = pd.DataFrame()
+
+    ## Create model loop
+
+    for model in RU_CONFIG["models"]:
         
-        pre_pipe = build_preprocess_pipeline(
-            num_cols=num_cols,
-            cat_cols=cat_cols,
-            yj_cols=yj_cols,
-            standardize=bool(RU_CONFIG["standardize"]),
-            engineered_cols=engineered_cols,
-            interactions=interactions,
-            poly_features=poly_features,
-            winsor_cols=winsor_features
-        )
+        ## Obtain parameters
 
-        train_Xp = pre_pipe.fit_transform(train_X)
-        val_Xp   = pre_pipe.transform(val_X)
+        PARAMS = MODEL_DICT[model]["params"]
 
-        ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
-
-        ml_model_scores = MODEL_DICT[model]["eval"](ml_model, val_Xp, val_y)
+        ## Create CV iterator
         
-        cv_scores_list.append(ml_model_scores)
+        cv_iterator = iter_cv_folds(train_data_prepared, label_col, CV_CONFIG)
+
+        ## Train and evaluate model with CV
+
+        for fold_idx, train_df, val_df in cv_iterator:
+            train_X, train_y = split_dataset(train_df, label_col)
+            val_X, val_y = split_dataset(val_df, label_col)
+            
+            pre_pipe = build_preprocess_pipeline(
+                num_cols=num_cols,
+                cat_cols=cat_cols,
+                yj_cols=yj_cols,
+                standardize=bool(RU_CONFIG["standardize"]),
+                engineered_cols=engineered_cols,
+                interactions=interactions,
+                poly_features=poly_features,
+                winsor_cols=winsor_features
+            )
+
+            train_Xp = pre_pipe.fit_transform(train_X)
+            val_Xp   = pre_pipe.transform(val_X)
+
+            ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
+
+            ml_model_scores = MODEL_DICT[model]["eval"](ml_model, val_Xp, val_y)
+            
+            cv_scores_list.append(ml_model_scores)
+
+        # Fit full model
+
+        if RU_CONFIG["fit_model"]:
+        
+            label_col=PR_CONFIG["label_col"]
+            
+            train_X, train_y = split_dataset(train_data_prepared, label_col)
+
+            pre_pipe = build_preprocess_pipeline(
+                num_cols=num_cols,
+                cat_cols=cat_cols,
+                yj_cols=yj_cols,
+                standardize=bool(RU_CONFIG["standardize"]),
+                engineered_cols=engineered_cols,
+                interactions=interactions,
+                poly_features=poly_features,
+                winsor_cols=winsor_features
+            )
+
+            train_Xp = pre_pipe.fit_transform(train_X)
+            
+            full_ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
+
+            if (
+                model == "logistic_regression" and
+                RU_CONFIG["store_regression"]
+            ):
+                store_regression_table(train_Xp, train_y, output_dir)
+
+            # Store model
+
+            if store_model:
+                MODEL_DICT[model]["store"](full_ml_model, dst_dir, model)
+
+            # Predict values for test data
+            
+            test_ids = test_data_converted["id"].to_numpy()
+
+            test_X = test_data_prepared
+
+            test_Xp = pre_pipe.transform(test_X)
+            
+            y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_Xp)
+            
+            col_name_1 = "id" + model
+            col_name_2 = "y_proba" + model
+
+            output_df[col_name_1] = test_ids
+            output_df[col_name_2] = y_proba
     
+    # Store outputs
+
+    ##  CV scores
+
     cv_scores = pd.concat(cv_scores_list, axis=0, ignore_index=True)
-
     cv_scores_table = cv_scores.describe().round(5)
-
     cv_scores_table.to_csv(output_dir / "cv_scores.csv", index=False)
 
-    # Fit full model
+    ## Predicted probabilities
 
-    if RU_CONFIG["fit_model"]:
-    
-        label_col=PR_CONFIG["label_col"]
-        model = RU_CONFIG["model"]
-        
-        train_X, train_y = split_dataset(train_data_prepared, label_col)
+    output_df["final_predictions"] = 0
+    num_models = 0
+    for model in RU_CONFIG["models"]:
+        num_models += 1
+        col_name = "y_proba" + model
+        output_df["final_predictions"] += output_df[col_name]
+    output_df["final_predictions"] = output_df["final_predictions"] / num_models
+    output_df.to_csv(output_dir / "predictions.csv", index=False)
 
-        pre_pipe = build_preprocess_pipeline(
-            num_cols=num_cols,
-            cat_cols=cat_cols,
-            yj_cols=yj_cols,
-            standardize=bool(RU_CONFIG["standardize"]),
-            engineered_cols=engineered_cols,
-            interactions=interactions,
-            poly_features=poly_features,
-            winsor_cols=winsor_features
-        )
+    ## Models
 
-        train_Xp = pre_pipe.fit_transform(train_X)
-        
-        full_ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
+    if store_model:
+        for path_name in [
+            "configs",
+            "output",
+            "src"
+        ]:
+            src_path = Path(path_name)
+            dst_path = Path(dst_dir, path_name)
+            shutil.copytree(
+                src=src_path,
+                dst=dst_path,
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+                dirs_exist_ok=True
+            )
 
-        if (
-            RU_CONFIG["model"] == "logistic_regression" and
-            RU_CONFIG["store_regression"]
-        ):
-            store_regression_table(train_Xp, train_y, output_dir)
+        for file_name in [
+            "run.py",
+            "requirements.txt"
+        ]:
+            src_file = Path(file_name)
+            dst_file = Path(dst_dir, file_name)
+            dst_file.write_bytes(src_file.read_bytes())
 
-        # Predict values for test data
-        
-        test_ids = test_data_converted["id"].to_numpy()
-
-        test_X = test_data_prepared
-
-        test_Xp = pre_pipe.transform(test_X)
-        
-        y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_Xp)
-        
-        output_df = pd.DataFrame(
-            {
-                "id": test_ids,
-                "Heart Disease": y_proba,
-            }
-        )
-            
-        output_df.to_csv(output_dir / "predictions.csv", index=False)
-
-        # Store model
-        model = RU_CONFIG["model"]
-        store_model = RU_CONFIG["store_model"]
-        storage_name = RU_CONFIG["storage_name"]
-
-        if store_model:
-            dst_dir = Path("models", storage_name)
-            dst_dir.mkdir(parents=True, exist_ok=True)
-            
-            for path_name in [
-                "configs",
-                "output",
-                "src"
-            ]:
-                src_path = Path(path_name)
-                dst_path = Path(dst_dir, path_name)
-                shutil.copytree(
-                    src=src_path,
-                    dst=dst_path,
-                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
-                )
-
-            for file_name in [
-                "run.py",
-                "requirements.txt"
-            ]:
-                src_file = Path(file_name)
-                dst_file = Path(dst_dir, file_name)
-                dst_file.write_bytes(src_file.read_bytes())
-
-            MODEL_DICT[model]["store"](full_ml_model, dst_dir, model)
-    
     # Calculate runtime
 
     end = time.perf_counter()
