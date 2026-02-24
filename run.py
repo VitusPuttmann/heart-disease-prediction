@@ -37,6 +37,9 @@ from src.xgboost import (
     predict_xgboost,
     store_xgboost
 )
+from src.ensemble import (
+    evaluate_ensemble
+)
 
 with open("configs/run.yaml", "r") as f:
     RU_CONFIG = yaml.safe_load(f)
@@ -103,8 +106,9 @@ if __name__ == "__main__":
     output_dir = Path("output") / timestamp
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    dst_dir = Path("models", storage_name)
-    dst_dir.mkdir(parents=True, exist_ok=True)
+    if store_model:
+        dst_dir = Path("models", storage_name)
+        dst_dir.mkdir(parents=True, exist_ok=True)
     
     # Measure runtime
 
@@ -263,6 +267,8 @@ if __name__ == "__main__":
 
     cv_scores_list = []
 
+    full_pred = pd.DataFrame()
+
     output_df = pd.DataFrame()
 
     ## Create model loop
@@ -326,16 +332,24 @@ if __name__ == "__main__":
             
             full_ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
 
+            # Store evaluation scores
+
+            y_proba_full = MODEL_DICT[model]["pred"](full_ml_model, train_Xp)
+            
+            full_pred[model] = y_proba_full
+
+            # Store regression table
+
             if (
                 model == "logistic_regression" and
                 RU_CONFIG["store_regression"]
             ):
-                store_regression_table(train_Xp, train_y, output_dir)
+                store_regression_table(train_Xp, train_y, output_dir) # type: ignore
 
             # Store model
 
             if store_model:
-                MODEL_DICT[model]["store"](full_ml_model, dst_dir, model)
+                MODEL_DICT[model]["store"](full_ml_model, dst_dir, model) # type: ignore
 
             # Predict values for test data
             
@@ -361,6 +375,23 @@ if __name__ == "__main__":
     cv_scores_table = cv_scores.describe().round(5)
     cv_scores_table.to_csv(output_dir / "cv_scores.csv", index=False)
 
+    ## Full model scores
+
+    if RU_CONFIG["fit_model"]:
+        full_pred["combined"] = 0
+        num_models = 0
+        for model in RU_CONFIG["models"]:
+            num_models += 1
+            full_pred["combined"] += full_pred[model]
+        full_pred["combined"] = full_pred["combined"] / num_models
+
+        y_true = train_y
+        y_proba = full_pred["combined"]
+        full_score = evaluate_ensemble(y_true, y_proba)
+
+        with open(output_dir / "full_score.csv", "w") as f:
+            f.write(f"{full_score:.5f}\n")
+    
     ## Predicted probabilities
 
     output_df["final_predictions"] = 0
