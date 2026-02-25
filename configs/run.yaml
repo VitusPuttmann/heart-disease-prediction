@@ -1,8 +1,9 @@
 # Configuration for the ML project run
 
-## Define model: xgboost | real_mlp | neural_net | logistic_regression
+## Define model:
 models: 
   - xgboost
+  #- catboost
   #- real_mlp
   #- neural_net
   #- logistic_regression
@@ -12,9 +13,9 @@ cv_splits: 2
 
 ## Define full model storage
 store_regression:   false
-fit_model:          true
-store_model:        true
-storage_name:       xgboost_2026-02-24_01
+fit_model:          false
+store_model:        false
+storage_name:       null
 
 ## Define features (0 = exclude / 1 = include)
 features:

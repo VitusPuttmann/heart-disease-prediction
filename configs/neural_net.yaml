@@ -18,3 +18,4 @@ loss_function: cross_entropy
 output_activation: softmax
 learning_rate_schedule: cosine_decay
 gradient_clipping_norm: 1.0
+one_hot: true

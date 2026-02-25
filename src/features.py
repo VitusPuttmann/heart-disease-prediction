@@ -111,10 +111,14 @@ class SelectedInteractions(BaseEstimator, TransformerMixin):
         new_cols = {}
 
         for new_col, c1, c2 in getattr(self, "_plan_", []):
-            new_cols[new_col] = X_out[c1] * X_out[c2]
+            a = pd.to_numeric(X_out[c1], errors="coerce")
+            b = pd.to_numeric(X_out[c2], errors="coerce")
+            new_cols[new_col] = (a * b).fillna(0.0)
 
         if new_cols:
-            X_out = pd.concat([X_out, pd.DataFrame(new_cols, index=X_out.index)], axis=1)
+            X_out = pd.concat(
+                [X_out, pd.DataFrame(new_cols, index=X_out.index)], axis=1
+            )
 
         return X_out
 
@@ -238,7 +242,10 @@ class SelectedQuadratics(BaseEstimator, TransformerMixin):
 
     def transform(self, X: pd.DataFrame):
         X_out = X.copy()
-        new_cols = {f"{c}{self.suffix}": X_out[c] ** 2 for c in self._cols_}
+        new_cols = {}
+        for c in self._cols_:
+            s = pd.to_numeric(X_out[c], errors="coerce")
+            new_cols[f"{c}{self.suffix}"] = (s ** 2).fillna(0.0)
         if new_cols:
             X_out = pd.concat([X_out, pd.DataFrame(new_cols, index=X_out.index)], axis=1)
         return X_out
@@ -519,7 +526,7 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
                 cnt = self._group_count_maps_[g_tuple]
                 name = "cnt_by_" + "_".join(g_tuple)
                 frame = pd.DataFrame({k: _col(k) for k in g_tuple})
-                new_cols[name] = pd.MultiIndex.from_frame(frame).map(cnt).fillna(0).astype(float)
+                new_cols[name] = pd.MultiIndex.from_frame(frame).map(cnt).fillna(0).astype(float) # type: ignore
 
             # means
             if g_tuple in self._group_mean_maps_:
@@ -529,7 +536,7 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
                 for c in self._num_for_stats_:
                     short = "bp" if c == "blood_pressure" else ("chol" if c == "cholesterol" else ("hr" if c == "max_hr" else ("stdep" if c == "st_depression" else c)))
                     name = f"mean_{short}_by_" + "_".join(g_tuple)
-                    new_cols[name] = idx.map(means[c]).astype(float)
+                    new_cols[name] = idx.map(means[c]).astype(float) # type: ignore
 
         for g in self._group_keys_:
             if all((col in X_out.columns) or (col in new_cols) for col in g):
@@ -543,13 +550,13 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
                 frame = pd.DataFrame({"age_bin_10y": _col("age_bin_10y"), "sex": X_out["sex"]})
                 idx = pd.MultiIndex.from_frame(frame)
                 if "blood_pressure" in X_out.columns:
-                    new_cols["bp_minus_mean_bp_by_agebin_sex"] = pd.to_numeric(X_out["blood_pressure"], errors="coerce") - idx.map(means["blood_pressure"])
+                    new_cols["bp_minus_mean_bp_by_agebin_sex"] = pd.to_numeric(X_out["blood_pressure"], errors="coerce") - idx.map(means["blood_pressure"]) # type: ignore # type: ignore
                 if "cholesterol" in X_out.columns:
-                    new_cols["chol_minus_mean_chol_by_agebin_sex"] = pd.to_numeric(X_out["cholesterol"], errors="coerce") - idx.map(means["cholesterol"])
+                    new_cols["chol_minus_mean_chol_by_agebin_sex"] = pd.to_numeric(X_out["cholesterol"], errors="coerce") - idx.map(means["cholesterol"]) # type: ignore
                 if "max_hr" in X_out.columns:
-                    new_cols["hr_minus_mean_hr_by_agebin_sex"] = pd.to_numeric(X_out["max_hr"], errors="coerce") - idx.map(means["max_hr"])
+                    new_cols["hr_minus_mean_hr_by_agebin_sex"] = pd.to_numeric(X_out["max_hr"], errors="coerce") - idx.map(means["max_hr"]) # type: ignore
                 if "st_depression" in X_out.columns:
-                    new_cols["stdep_minus_mean_stdep_by_agebin_sex"] = pd.to_numeric(X_out["st_depression"], errors="coerce") - idx.map(means["st_depression"])
+                    new_cols["stdep_minus_mean_stdep_by_agebin_sex"] = pd.to_numeric(X_out["st_depression"], errors="coerce") - idx.map(means["st_depression"]) # type: ignore
 
         # target encodings
         for c, mp in self._te_maps_.items():
@@ -557,7 +564,7 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
 
         for (c1, c2), mp in self._te_pair_maps_.items():
             key = pd.MultiIndex.from_frame(X_out[[c1, c2]])
-            new_cols[f"te_{c1}_{c2}"] = key.map(mp).fillna(self._y_mean_).astype(float)
+            new_cols[f"te_{c1}_{c2}"] = key.map(mp).fillna(self._y_mean_).astype(float) # type: ignore
 
         # percentile ranks within (age_bin_10y, sex)
         if {"age_bin_10y", "sex"}.issubset(set(X_out.columns) | set(new_cols.keys())):
@@ -595,6 +602,7 @@ def build_preprocess_pipeline(
     cat_cols: List[str],
     yj_cols: Optional[List[str]],
     standardize: bool,
+    one_hot: bool,
     engineered_cols: List[str],
     interactions: List[Dict[str, Any]] | None = None,
     poly_features: Optional[List[str]] = None,
@@ -646,12 +654,16 @@ def build_preprocess_pipeline(
     if isinstance(num_pipe, tuple):
         num_pipe = Pipeline([num_pipe])
 
+    cat_transformer = (
+        OneHotEncoder(drop="first", handle_unknown="ignore", sparse_output=False)
+        if one_hot
+        else "passthrough"
+    )
+
     pre = ColumnTransformer(
         transformers=[
             ("num", num_pipe, num_cols),
-            ("cat", OneHotEncoder(
-                drop="first", handle_unknown="ignore", sparse_output=False
-            ), cat_cols)
+            ("cat", cat_transformer, cat_cols)
         ],
         remainder="drop",
         verbose_feature_names_out=False,

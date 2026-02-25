@@ -18,6 +18,12 @@ from src.features import (
 )
 from src.cross_validation import iter_cv_folds
 from src.training import split_dataset
+from src.catboost import (
+    fit_catboost,
+    evaluate_catboost,
+    predict_catboost,
+    store_catboost
+)
 from src.logistic_regression import (
     store_regression_table,
     fit_logistic_regression,
@@ -53,6 +59,8 @@ with open("configs/project.yaml", "r") as f:
     PR_CONFIG = yaml.safe_load(f)
 with open("configs/cross_validation.yaml", "r") as f:
     CV_CONFIG = yaml.safe_load(f)
+with open("configs/catboost.yaml", "r") as f:
+    CB_PARAMS = yaml.safe_load(f)
 with open("configs/logistic_regression.yaml", "r") as f:
     LR_PARAMS = yaml.safe_load(f)
 with open("configs/neural_net.yaml", "r") as f:
@@ -67,6 +75,13 @@ FEATURE_KEYS = {
     k for k, v in FEATURES.items() if isinstance(v, dict) and "name_clean" in v
 }
 
+def cat_feature_indices_after_preprocessing(
+        train_Xp: pd.DataFrame, cat_cols: list[str]
+    ) -> list[int]:
+    return [
+        train_Xp.columns.get_loc(c) for c in cat_cols if c in train_Xp.columns
+    ] # type: ignore
+
 def is_engineered(k: str) -> bool:
     return isinstance(
         FEATURES.get(k), dict
@@ -75,6 +90,13 @@ def is_engineered(k: str) -> bool:
 CV_CONFIG["n_splits"] = RU_CONFIG["cv_splits"]
 
 MODEL_DICT = {
+    "catboost": {
+        "params":       CB_PARAMS,
+        "fit":          fit_catboost,
+        "eval":         evaluate_catboost,
+        "pred":         predict_catboost,
+        "store":        store_catboost
+    },
     "logistic_regression": {
         "params":       LR_PARAMS,
         "fit":          fit_logistic_regression,
@@ -309,6 +331,7 @@ if __name__ == "__main__":
                 cat_cols=cat_cols,
                 yj_cols=yj_cols,
                 standardize=bool(RU_CONFIG["standardize"]),
+                one_hot=PARAMS["one_hot"],
                 engineered_cols=engineered_cols,
                 interactions=interactions,
                 poly_features=poly_features,
@@ -318,9 +341,13 @@ if __name__ == "__main__":
             train_Xp = pre_pipe.fit_transform(train_X, train_y)
             val_Xp   = pre_pipe.transform(val_X)
 
-            ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
-
-            ml_model_scores = MODEL_DICT[model]["eval"](ml_model, val_Xp, val_y)
+            if model == "catboost" and not PARAMS["one_hot"]:
+                cb_cat_features = cat_feature_indices_after_preprocessing(train_Xp, cat_cols) # type: ignore
+                ml_model = fit_catboost(train_Xp, train_y, PARAMS, cat_features=cb_cat_features)
+                ml_model_scores = evaluate_catboost(ml_model, val_Xp, val_y, cat_features=cb_cat_features)
+            else:
+                ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
+                ml_model_scores = MODEL_DICT[model]["eval"](ml_model, val_Xp, val_y)
             
             cv_scores_list.append(ml_model_scores)
 
@@ -337,6 +364,7 @@ if __name__ == "__main__":
                 cat_cols=cat_cols,
                 yj_cols=yj_cols,
                 standardize=bool(RU_CONFIG["standardize"]),
+                one_hot=PARAMS["one_hot"],
                 engineered_cols=engineered_cols,
                 interactions=interactions,
                 poly_features=poly_features,
@@ -344,14 +372,21 @@ if __name__ == "__main__":
             )
 
             train_Xp = pre_pipe.fit_transform(train_X, train_y)
+            test_ids = test_data_converted["id"].to_numpy()
+            test_X = test_data_prepared
+            test_Xp = pre_pipe.transform(test_X)
             
-            full_ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
-
-            # Store evaluation scores
-
-            y_proba_full = MODEL_DICT[model]["pred"](full_ml_model, train_Xp)
-            
-            full_pred[model] = y_proba_full
+            if model == "catboost" and not PARAMS["one_hot"]:
+                cb_cat_features = cat_feature_indices_after_preprocessing(train_Xp, cat_cols) # type: ignore
+                full_ml_model = fit_catboost(train_Xp, train_y, PARAMS, cat_features=cb_cat_features)
+                y_proba_full = predict_catboost(full_ml_model, train_Xp, cat_features=cb_cat_features)
+                full_pred[model] = y_proba_full
+                y_proba = predict_catboost(full_ml_model, test_Xp, cat_features=cb_cat_features)
+            else:
+                full_ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS)
+                y_proba_full = MODEL_DICT[model]["pred"](full_ml_model, train_Xp)
+                full_pred[model] = y_proba_full
+                y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_Xp)
 
             # Store regression table
 
@@ -367,14 +402,6 @@ if __name__ == "__main__":
                 MODEL_DICT[model]["store"](full_ml_model, dst_dir, model) # type: ignore
 
             # Predict values for test data
-            
-            test_ids = test_data_converted["id"].to_numpy()
-
-            test_X = test_data_prepared
-
-            test_Xp = pre_pipe.transform(test_X)
-            
-            y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_Xp)
             
             col_name_1 = f"id_{model}"
             col_name_2 = f"y_proba_{model}"

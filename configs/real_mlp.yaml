@@ -23,3 +23,4 @@ loss_function: binary_crossentropy
 output_activation: sigmoid
 learning_rate_schedule: cosine_decay
 warmup_epochs: 5
+one_hot: true
