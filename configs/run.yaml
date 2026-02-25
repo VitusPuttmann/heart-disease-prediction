@@ -2,7 +2,8 @@
 
 ## Define model:
 models: 
-  - xgboost
+  #- xgboost
+  - lightgbm
   #- catboost
   #- real_mlp
   #- neural_net

@@ -24,6 +24,12 @@ from src.catboost import (
     predict_catboost,
     store_catboost
 )
+from src.lightgbm import (
+    fit_lightgbm,
+    evaluate_lightgbm,
+    predict_lightgbm,
+    store_lightgbm
+)
 from src.logistic_regression import (
     store_regression_table,
     fit_logistic_regression,
@@ -61,6 +67,8 @@ with open("configs/cross_validation.yaml", "r") as f:
     CV_CONFIG = yaml.safe_load(f)
 with open("configs/catboost.yaml", "r") as f:
     CB_PARAMS = yaml.safe_load(f)
+with open("configs/lightgbm.yaml", "r") as f:
+    LG_PARAMS = yaml.safe_load(f)
 with open("configs/logistic_regression.yaml", "r") as f:
     LR_PARAMS = yaml.safe_load(f)
 with open("configs/neural_net.yaml", "r") as f:
@@ -90,6 +98,13 @@ def is_engineered(k: str) -> bool:
 CV_CONFIG["n_splits"] = RU_CONFIG["cv_splits"]
 
 MODEL_DICT = {
+    "lightgbm": {
+        "params":       LG_PARAMS,
+        "fit":          fit_lightgbm,
+        "eval":         evaluate_lightgbm,
+        "pred":         predict_lightgbm,
+        "store":        store_lightgbm
+    },
     "catboost": {
         "params":       CB_PARAMS,
         "fit":          fit_catboost,
