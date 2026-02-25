@@ -1,0 +1,18 @@
+# Configuration for the CatBoost classifier
+loss_function: Logloss
+eval_metric: AUC
+iterations: 200
+od_type: Iter
+od_wait: 20
+use_best_model: false
+depth: 4
+learning_rate: 0.1
+subsample: 0.8
+rsm: 0.8
+min_data_in_leaf: 3
+l2_leaf_reg: 5.0
+random_seed: 554512
+bootstrap_type: Bernoulli
+grow_policy: SymmetricTree
+verbose: false
+one_hot: false
