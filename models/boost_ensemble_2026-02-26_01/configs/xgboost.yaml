@@ -1,0 +1,18 @@
+# Configuration for the XGBoost classifier
+objective: binary:logistic
+eval_metric: auc
+num_boost_round: 200
+max_depth: 4
+eta: 0.1
+subsample: 0.8
+colsample_bytree: 0.8
+min_child_weight: 3
+gamma: 1.0
+reg_lambda: 5.0
+reg_alpha: 0.0
+seed: 729451
+tree_method: hist
+verbosity: 0
+verbose_eval: false
+one_hot: true
+augment: true

@@ -1,0 +1,13 @@
+# Configuration for the logistic regression
+solver: "saga"
+fit_intercept: true
+random_state: 907364
+max_iter: 500
+tol: 0.001
+n_jobs: null
+verbose: 0
+C: 0.1
+l1_ratio: 0.5
+class_weight: null
+one_hot: true
+augment: false
