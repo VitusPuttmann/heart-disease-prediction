@@ -3,7 +3,7 @@
 ## Define model:
 models: 
   - lightgbm_main
-  - xgboost
+  #- xgboost
   #- catboost
   
   #- lightgbm_deep_expressive
@@ -27,9 +27,9 @@ cv_splits: 2
 
 ## Define full model storage
 store_regression:   false
-fit_model:          true
-store_model:        true
-storage_name:       boost_ensemble_2026-02-28_02
+fit_model:          false
+store_model:        false
+storage_name:       null
 
 ## Define features (0 = exclude / 1 = include)
 features:

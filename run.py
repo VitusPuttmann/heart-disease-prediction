@@ -2,90 +2,57 @@
 Execution entry point of the ML project.
 """
 
-import time
-
 from pathlib import Path
 import shutil
-import yaml
+import time
 
+# REFACTOR START
+# MOVE TO SEPARATE SCRIPT
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
+# REFACTOR END
 
+from configs.loader import load_yaml
 from src.loading import load_raw_data
 from src.preparation import rename_features, numeric_to_string
-from src.features import (
-    build_preprocess_pipeline
-)
+from src.features import build_preprocess_pipeline
 from src.cross_validation import iter_cv_folds
 from src.training import split_dataset
-from src.models.catboost import (
-    fit_catboost,
-    evaluate_catboost,
-    predict_catboost,
-    store_catboost
-)
-from src.models.lightgbm import (
-    fit_lightgbm,
-    evaluate_lightgbm,
-    predict_lightgbm,
-    store_lightgbm,
-    build_monotone_constraints
-)
-from src.models.logistic_regression import (
-    fit_logistic_regression,
-    evaluate_logistic_regression,
-    predict_logistic_regression,
-    store_logistic_regression
-)
-from src.models.neural_net import (
-    fit_neuralnet,
-    evaluate_neuralnet,
-    predict_neuralnet,
-    store_neural_net
-)
-from src.models.real_mlp import (
-    fit_realmlp,
-    evaluate_realmlp,
-    predict_realmlp,
-    store_realmlp
-)
-from src.models.xgboost import (
-    fit_xgboost,
-    evaluate_xgboost,
-    predict_xgboost,
-    store_xgboost
-)
+from src.models.registry import build_model_registry
 from src.ensemble import evaluate_ensemble
 
 
-with open("configs/run.yaml", "r") as f:
-    RU_CONFIG = yaml.safe_load(f)
-with open("configs/project.yaml", "r") as f:
-    PR_CONFIG = yaml.safe_load(f)
-with open("configs/cross_validation.yaml", "r") as f:
-    CV_CONFIG = yaml.safe_load(f)
-with open("configs/features.yaml", "r") as f:
-    FEATURES = yaml.safe_load(f)
-with open("params/catboost.yaml", "r") as f:
-    CB_PARAMS = yaml.safe_load(f)
-with open("params/lightgbm.yaml", "r") as f:
-    LG_PARAMS = yaml.safe_load(f)
-with open("params/logistic_regression.yaml", "r") as f:
-    LR_PARAMS = yaml.safe_load(f)
-with open("params/neural_net.yaml", "r") as f:
-    NN_PARAMS = yaml.safe_load(f)
-with open("params/real_mlp.yaml", "r") as f:
-    RM_PARAMS = yaml.safe_load(f)
-with open("params/xgboost.yaml", "r") as f:
-    XG_PARAMS = yaml.safe_load(f)
+RU_CONFIG = load_yaml("configs/run.yaml")
+PR_CONFIG = load_yaml("configs/project.yaml")
+CV_CONFIG = load_yaml("configs/cross_validation.yaml")
+FEATURES  = load_yaml("configs/features.yaml")
+CB_PARAMS = load_yaml("params/catboost.yaml")
+LG_PARAMS = load_yaml("params/lightgbm.yaml")
+LR_PARAMS = load_yaml("params/logistic_regression.yaml")
+NN_PARAMS = load_yaml("params/neural_net.yaml")
+RM_PARAMS = load_yaml("params/real_mlp.yaml")
+XG_PARAMS = load_yaml("params/xgboost.yaml")
 
-# REFACTOR START: Check whether necessary
+CV_CONFIG["n_splits"] = RU_CONFIG["cv_splits"]
+
+MODEL_REG = build_model_registry(
+    LG_PARAMS,
+    CB_PARAMS,
+    LR_PARAMS,
+    NN_PARAMS,
+    RM_PARAMS,
+    XG_PARAMS,
+)
+
+# REFACTOR START
+# Check whether necessary
 FEATURE_KEYS = {
     k for k, v in FEATURES.items() if isinstance(v, dict) and "name_clean" in v
 }
 # REFACTOR END
 
-# REFACTOR START: Check whether necessary
+# REFACTOR START
+# Check whether necessary
 def cat_feature_indices_after_preprocessing(
         train_Xp: pd.DataFrame, cat_cols: list[str]
     ) -> list[int]:
@@ -94,93 +61,15 @@ def cat_feature_indices_after_preprocessing(
     ] # type: ignore
 # REFACTOR END
 
-# REFACTOR START: Check whether necessary
+# REFACTOR START:
+# Check whether necessary
 def is_engineered(k: str) -> bool:
     return isinstance(
         FEATURES.get(k), dict
     ) and FEATURES[k].get("source") == "engineered"
 # REFACTOR END
 
-CV_CONFIG["n_splits"] = RU_CONFIG["cv_splits"]
-
-# REFACTOR START: Shift to separate file in params folder
-MODEL_DICT = {
-    "lightgbm_main": {
-        "params":       LG_PARAMS["main"],
-        "fit":          fit_lightgbm,
-        "eval":         evaluate_lightgbm,
-        "pred":         predict_lightgbm,
-        "store":        store_lightgbm
-    },
-    "lightgbm_deep_expressive": {
-        "params":       LG_PARAMS["deep_expressive"],
-        "fit":          fit_lightgbm,
-        "eval":         evaluate_lightgbm,
-        "pred":         predict_lightgbm,
-        "store":        store_lightgbm
-    },
-    "lightgbm_strong_reg": {
-        "params":       LG_PARAMS["strong_reg"],
-        "fit":          fit_lightgbm,
-        "eval":         evaluate_lightgbm,
-        "pred":         predict_lightgbm,
-        "store":        store_lightgbm
-    },
-    "lightgbm_boost": {
-        "params":       LG_PARAMS["boost"],
-        "fit":          fit_lightgbm,
-        "eval":         evaluate_lightgbm,
-        "pred":         predict_lightgbm,
-        "store":        store_lightgbm
-    },
-    "lightgbm_more_subs": {
-        "params":       LG_PARAMS["more_subs"],
-        "fit":          fit_lightgbm,
-        "eval":         evaluate_lightgbm,
-        "pred":         predict_lightgbm,
-        "store":        store_lightgbm
-    },
-    "catboost": {
-        "params":       CB_PARAMS,
-        "fit":          fit_catboost,
-        "eval":         evaluate_catboost,
-        "pred":         predict_catboost,
-        "store":        store_catboost
-    },
-    "logistic_regression": {
-        "params":       LR_PARAMS,
-        "fit":          fit_logistic_regression,
-        "eval":         evaluate_logistic_regression,
-        "pred":         predict_logistic_regression,
-        "store":        store_logistic_regression
-    },
-    "neural_net": {
-        "params":       NN_PARAMS,
-        "fit":          fit_neuralnet,
-        "eval":         evaluate_neuralnet,
-        "pred":         predict_neuralnet,
-        "store":        store_neural_net
-    },
-    "real_mlp": {
-        "params":       RM_PARAMS,
-        "fit":          fit_realmlp,
-        "eval":         evaluate_realmlp,
-        "pred":         predict_realmlp,
-        "store":        store_realmlp
-    },
-    "xgboost": {
-        "params":       XG_PARAMS,
-        "fit":          fit_xgboost,
-        "eval":         evaluate_xgboost,
-        "pred":         predict_xgboost,
-        "store":        store_xgboost
-    }
-}
-# REFACTOR END
-
-
 # REFACTOR CURRENT POSITION
-
 drop_features = [
     'age_x_number_vessels__age_bin_10y_(35.0, 45.0]__x__number_vessels_two',
     'age_x_number_vessels__age_bin_10y_(35.0, 45.0]__x__number_vessels_zero',
@@ -531,7 +420,7 @@ if __name__ == "__main__":
         
         ## Obtain parameters
 
-        PARAMS = MODEL_DICT[model]["params"]
+        PARAMS = MODEL_REG[model].params
 
         ## Create CV iterator
         
@@ -596,8 +485,8 @@ if __name__ == "__main__":
             
             if model.startswith("lightgbm"):
                 PARAMS_FOLD = PARAMS.copy()
-                PARAMS_FOLD["monotone_constraints"] = build_monotone_constraints(train_Xp, MONO_SPEC)
-                PARAMS_FOLD["monotone_constraints_method"] = "advanced"
+                #PARAMS_FOLD["monotone_constraints"] = build_monotone_constraints(train_Xp, MONO_SPEC)
+                #PARAMS_FOLD["monotone_constraints_method"] = "advanced"
             
             if model == "catboost" and not PARAMS["one_hot"]:
                 for c in train_Xp.columns:
@@ -609,15 +498,15 @@ if __name__ == "__main__":
                 ml_model = fit_catboost(train_Xp, train_y, PARAMS, cat_features=cb_cat_features)
                 ml_model_scores = evaluate_catboost(ml_model, val_Xp, val_y, cat_features=cb_cat_features)
             else:
-                ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS_FOLD)
-                ml_model_scores = MODEL_DICT[model]["eval"](ml_model, val_Xp, val_y)
+                ml_model = MODEL_REG[model].fit(train_Xp, train_y, PARAMS_FOLD)
+                ml_model_scores = MODEL_REG[model].evaluate(ml_model, val_Xp, val_y)
 
             cv_scores_list.append(ml_model_scores)
 
             if model == "catboost" and not PARAMS["one_hot"]:
                 p_val = predict_catboost(ml_model, val_Xp, cat_features=cb_cat_features) # type: ignore
             else:
-                p_val = MODEL_DICT[model]["pred"](ml_model, val_Xp)
+                p_val = MODEL_REG[model].predict(ml_model, val_Xp)
 
             oof_proba.loc[val_df.index] = p_val
 
@@ -680,16 +569,16 @@ if __name__ == "__main__":
             PARAMS_FOLD = PARAMS
             if model.startswith("lightgbm"):
                 PARAMS_FOLD = PARAMS.copy()
-                PARAMS_FOLD["monotone_constraints"] = build_monotone_constraints(train_Xp, MONO_SPEC)
-                PARAMS_FOLD["monotone_constraints_method"] = "advanced"
+                #PARAMS_FOLD["monotone_constraints"] = build_monotone_constraints(train_Xp, MONO_SPEC)
+                #PARAMS_FOLD["monotone_constraints_method"] = "advanced"
 
             if model == "catboost" and not PARAMS["one_hot"]:
                 cb_cat_features = cat_feature_indices_after_preprocessing(train_Xp, cat_cols) # type: ignore
                 ml_model = fit_catboost(train_Xp, train_y, PARAMS, cat_features=cb_cat_features)
                 ml_model_scores = evaluate_catboost(ml_model, val_Xp, val_y, cat_features=cb_cat_features)
             else:
-                ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS_FOLD)
-                ml_model_scores = MODEL_DICT[model]["eval"](ml_model, val_Xp, val_y)
+                ml_model = MODEL_REG[model].fit(train_Xp, train_y, PARAMS_FOLD)
+                ml_model_scores = MODEL_REG[model].evaluate(ml_model, val_Xp, val_y)
 
             cv_scores_filt_list.append(ml_model_scores)
 
@@ -748,8 +637,8 @@ if __name__ == "__main__":
             PARAMS_FULL = PARAMS
             if model.startswith("lightgbm"):
                 PARAMS_FULL = PARAMS.copy()
-                PARAMS_FULL["monotone_constraints"] = build_monotone_constraints(train_Xp, MONO_SPEC)
-                PARAMS_FULL["monotone_constraints_method"] = "advanced"
+                #PARAMS_FULL["monotone_constraints"] = build_monotone_constraints(train_Xp, MONO_SPEC)
+                #PARAMS_FULL["monotone_constraints_method"] = "advanced"
             
             if model == "catboost" and not PARAMS["one_hot"]:
                 for c in train_Xp.columns:
@@ -762,8 +651,8 @@ if __name__ == "__main__":
                 full_ml_model = fit_catboost(train_Xp, train_y, PARAMS, cat_features=cb_cat_features)
                 y_proba = predict_catboost(full_ml_model, test_Xp, cat_features=cb_cat_features)
             else:
-                full_ml_model = MODEL_DICT[model]["fit"](train_Xp, train_y, PARAMS_FULL)
-                y_proba = MODEL_DICT[model]["pred"](full_ml_model, test_Xp)
+                full_ml_model = MODEL_REG[model].fit(train_Xp, train_y, PARAMS_FULL)
+                y_proba = MODEL_REG[model].predict(full_ml_model, test_Xp)
 
             # Store regression table
 
@@ -776,7 +665,7 @@ if __name__ == "__main__":
             # Store model
 
             if store_model:
-                MODEL_DICT[model]["store"](full_ml_model, dst_dir, model) # type: ignore
+                MODEL_REG[model].store(full_ml_model, dst_dir, model) # type: ignore
 
             # Predict values for test data
             
