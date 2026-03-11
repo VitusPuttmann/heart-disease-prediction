@@ -8,7 +8,6 @@ from typing import Optional, Any, Dict, List, Tuple, Literal
 
 import numpy as np
 import pandas as pd
-
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
@@ -61,7 +60,11 @@ class Winsorizer(BaseEstimator, TransformerMixin):
     
     def get_feature_names_out(self, input_features=None):
         if input_features is None:
-            return np.array(getattr(self, "feature_names_in_", getattr(self, "_feature_names_in_", [])), dtype=object)
+            return np.array(
+                getattr(self, "feature_names_in_",
+                getattr(self, "_feature_names_in_", [])),
+                dtype=object
+            )
         return np.array(list(input_features), dtype=object)
 
 
@@ -201,19 +204,25 @@ class HeartRateSTFeatures(BaseEstimator, TransformerMixin):
         if pd.api.types.is_numeric_dtype(fbs):
             X_out["fbs_high"] = (fbs.astype(float) == 1.0).astype(int)
         else:
-            X_out["fbs_high"] = fbs.astype(str).str.lower().isin(["true", "1", "yes"]).astype(int)
+            X_out["fbs_high"] = fbs.astype(str).str.lower().isin(
+                ["true", "1", "yes"]
+            ).astype(int)
 
         ex = X_out[self.exang_col]
         if pd.api.types.is_numeric_dtype(ex):
             exang_yes = (ex.astype(float) == 1.0).astype(int)
         else:
-            exang_yes = ex.astype(str).str.lower().isin(["yes", "1", "true"]).astype(int)
+            exang_yes = ex.astype(str).str.lower().isin(
+                ["yes", "1", "true"]
+            ).astype(int)
         
         nv = X_out[self.vessels_col]
         if pd.api.types.is_numeric_dtype(nv):
             vessels_pos = (nv.astype(float) > 0.0).astype(int)
         else:
-            vessels_pos = (~nv.astype(str).str.lower().isin(["zero", "0"])).astype(int)
+            vessels_pos = (
+                ~nv.astype(str).str.lower().isin(["zero", "0"])
+            ).astype(int)
         
         th = X_out[self.thal_col]
         if pd.api.types.is_numeric_dtype(th):
@@ -254,7 +263,9 @@ class SelectedQuadratics(BaseEstimator, TransformerMixin):
             s = pd.to_numeric(X_out[c], errors="coerce")
             new_cols[f"{c}{self.suffix}"] = (s ** 2).fillna(0.0)
         if new_cols:
-            X_out = pd.concat([X_out, pd.DataFrame(new_cols, index=X_out.index)], axis=1)
+            X_out = pd.concat(
+                [X_out, pd.DataFrame(new_cols, index=X_out.index)], axis=1
+            )
         return X_out
 
     def get_feature_names_out(self, input_features=None):
@@ -292,14 +303,16 @@ class SelectedCubicSplines(BaseEstimator, TransformerMixin):
                 n_knots=self.n_knots,
                 degree=self.degree,
                 include_bias=self.include_bias,
-                extrapolation=self.extrapolation,    # type: ignore[arg-type]
+                extrapolation=self.extrapolation,
             )
             x = pd.to_numeric(X[c], errors="coerce").to_numpy().reshape(-1, 1)
             st.fit(x)
             self._splines_[c] = st
 
             n_out = st.transform(x[:1]).shape[1]
-            self._added_cols_.extend([f"{c}{self.suffix}{j+1}" for j in range(n_out)])
+            self._added_cols_.extend(
+                [f"{c}{self.suffix}{j+1}" for j in range(n_out)]
+            )
 
         return self
 
@@ -309,14 +322,18 @@ class SelectedCubicSplines(BaseEstimator, TransformerMixin):
 
         for c in self._cols_:
             st = self._splines_[c]
-            x = pd.to_numeric(X_out[c], errors="coerce").to_numpy().reshape(-1, 1)
+            x = pd.to_numeric(
+                X_out[c], errors="coerce"
+            ).to_numpy().reshape(-1, 1)
             basis = st.transform(x)
             n_out = basis.shape[1]
             for j in range(n_out):
                 new_cols[f"{c}{self.suffix}{j+1}"] = basis[:, j]
 
         if new_cols:
-            X_out = pd.concat([X_out, pd.DataFrame(new_cols, index=X_out.index)], axis=1)
+            X_out = pd.concat(
+                [X_out, pd.DataFrame(new_cols, index=X_out.index)], axis=1
+            )
         return X_out
 
     def get_feature_names_out(self, input_features=None):
@@ -347,6 +364,119 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
         self.age_bin_width_10y = age_bin_width_10y
         self.age_bin_width_5y = age_bin_width_5y
 
+    def infer_added_columns(
+            self,
+            input_columns: List[str]
+    ) -> tuple[List[str], List[str]]:
+        present = set(input_columns)
+        has_age = self.age_col in present
+
+        cat_added: List[str] = []
+        if has_age:
+            cat_added.extend(["age_bin_10y", "age_bin_5y"])
+
+        num_added: List[str] = []
+
+        for base in ["cholesterol", "blood_pressure", "st_depression", "max_hr"]:
+            if base not in present:
+                continue
+            if base != "max_hr":
+                num_added.append(f"log1p_{base}")
+            num_added.append(f"{base}_sq")
+
+        ratio_specs = [
+            ("cholesterol_over_blood_pressure", {"cholesterol", "blood_pressure"}),
+            ("blood_pressure_over_max_hr", {"blood_pressure", "max_hr"}),
+            ("cholesterol_over_max_hr", {"cholesterol", "max_hr"}),
+            ("st_depression_over_max_hr", {"st_depression", "max_hr"}),
+            ("max_hr_over_age", {"max_hr", "age"}),
+            ("blood_pressure_over_age", {"blood_pressure", "age"}),
+            ("cholesterol_over_age", {"cholesterol", "age"}),
+            ("st_depression_over_age", {"st_depression", "age"}),
+        ]
+        for name, req in ratio_specs:
+            if req.issubset(present):
+                num_added.append(name)
+
+        interaction_specs = [
+            ("age_x_max_hr", {"age", "max_hr"}),
+            ("age_x_st_depression", {"age", "st_depression"}),
+            ("max_hr_x_st_depression", {"max_hr", "st_depression"}),
+            ("blood_pressure_x_st_depression", {"blood_pressure", "st_depression"}),
+            ("cholesterol_x_st_depression", {"cholesterol", "st_depression"}),
+            ("blood_pressure_x_max_hr", {"blood_pressure", "max_hr"}),
+            ("cholesterol_x_max_hr", {"cholesterol", "max_hr"}),
+        ]
+        for name, req in interaction_specs:
+            if req.issubset(present):
+                num_added.append(name)
+
+        group_keys = [
+            ("sex",),
+            ("chest_pain",),
+            ("exercise_angina",),
+            ("thallium",),
+            ("number_vessels",),
+            ("ekg",),
+            ("slope_st",),
+            ("age_bin_10y", "sex"),
+            ("thallium", "number_vessels"),
+            ("sex", "chest_pain"),
+            ("exercise_angina", "slope_st"),
+        ]
+
+        stats = [
+            "blood_pressure",
+            "cholesterol",
+            "max_hr",
+            "st_depression",
+            "age"
+        ]
+        short = {
+            "blood_pressure": "bp",
+            "cholesterol": "chol",
+            "max_hr": "hr",
+            "st_depression": "stdep",
+            "age": "age",
+        }
+
+        for g in group_keys:
+            if all(
+                ((k in present) or (k == "age_bin_10y" and has_age)) for k in g
+            ):
+                num_added.append("cnt_by_" + "_".join(g))
+                for c in stats:
+                    if c in present:
+                        num_added.append(f"mean_{short[c]}_by_" + "_".join(g))
+
+        if has_age and ("sex" in present):
+            if "blood_pressure" in present:
+                num_added.append("bp_minus_mean_bp_by_agebin_sex")
+            if "cholesterol" in present:
+                num_added.append("chol_minus_mean_chol_by_agebin_sex")
+            if "max_hr" in present:
+                num_added.append("hr_minus_mean_hr_by_agebin_sex")
+            if "st_depression" in present:
+                num_added.append("stdep_minus_mean_stdep_by_agebin_sex")
+
+            if "blood_pressure" in present:
+                num_added.append("pct_rank_bp_within_agebin_sex")
+            if "cholesterol" in present:
+                num_added.append("pct_rank_chol_within_agebin_sex")
+            if "max_hr" in present:
+                num_added.append("pct_rank_hr_within_agebin_sex")
+            if "st_depression" in present:
+                num_added.append("pct_rank_stdep_within_agebin_sex")
+
+        for c in self.te_cols:
+            if c in present:
+                num_added.append(f"te_{c}")
+        for c1, c2 in self.te_pair_cols:
+            if (c1 in present) and (c2 in present):
+                num_added.append(f"te_{c1}_{c2}")
+
+        return list(dict.fromkeys(cat_added)), list(dict.fromkeys(num_added))
+
     def fit(self, X: pd.DataFrame, y: Optional[pd.Series] = None):
         Xdf = X.copy()
 
@@ -354,10 +484,13 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
         a_min = int(np.floor(age.min() / 5.0) * 5)
         a_max = int(np.ceil(age.max() / 5.0) * 5)
 
-        self._age_bins_10_ = np.arange(a_min, a_max + self.age_bin_width_10y, self.age_bin_width_10y)
-        self._age_bins_5_  = np.arange(a_min, a_max + self.age_bin_width_5y,  self.age_bin_width_5y)
+        self._age_bins_10_ = np.arange(
+            a_min, a_max + self.age_bin_width_10y, self.age_bin_width_10y
+        )
+        self._age_bins_5_ = np.arange(
+            a_min, a_max + self.age_bin_width_5y,  self.age_bin_width_5y
+        )
 
-        # --- y handling (must be first; TE depends on it) ---
         if y is None:
             self._y_mean_ = 0.5
             y_ser = None
@@ -377,7 +510,14 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
             include_lowest=True,
         ).astype(str)
 
-        self._num_for_stats_ = [c for c in ["blood_pressure", "cholesterol", "max_hr", "st_depression", "age"] if c in X_tmp.columns]
+        self._num_for_stats_ = [
+            c for c in [
+                "blood_pressure",
+                "cholesterol",
+                "max_hr",
+                "st_depression",
+                "age"
+            ] if c in X_tmp.columns]
 
         self._group_keys_ = [
             ["sex"],
@@ -400,10 +540,11 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
             if all(col in X_tmp.columns for col in g_tuple):
                 grp = X_tmp.groupby(list(g_tuple), dropna=False)
                 if self._num_for_stats_:
-                    self._group_mean_maps_[g_tuple] = grp[self._num_for_stats_].mean()
+                    self._group_mean_maps_[g_tuple] = grp[
+                        self._num_for_stats_
+                    ].mean()
                 self._group_count_maps_[g_tuple] = grp.size()
 
-        # --- target encodings ---
         self._te_maps_: dict[str, pd.Series] = {}
         self._te_pair_maps_: dict[tuple[str, str], pd.Series] = {}
 
@@ -415,7 +556,6 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
             for c in self.te_cols:
                 if c not in X_tmp.columns:
                     continue
-                # FORCE CONSISTENT KEYS (string) for mapping later
                 grp = (
                     pd.DataFrame({c: X_tmp[c].astype(str), "_y": y_ser})
                     .groupby(c, dropna=False)["_y"]
@@ -425,151 +565,40 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
             for c1, c2 in self.te_pair_cols:
                 if c1 not in X_tmp.columns or c2 not in X_tmp.columns:
                     continue
-                # FORCE CONSISTENT KEYS (string) for pair mapping later
-                tmp = pd.DataFrame({c1: X_tmp[c1].astype(str), c2: X_tmp[c2].astype(str), "_y": y_ser})
+                tmp = pd.DataFrame(
+                    {c1: X_tmp[c1].astype(str),
+                     c2: X_tmp[c2].astype(str),
+                     "_y": y_ser}
+                )
                 grp = tmp.groupby([c1, c2], dropna=False)["_y"]
-                self._te_pair_maps_[(c1, c2)] = _smooth_rate(grp.size(), grp.mean())
+                self._te_pair_maps_[(c1, c2)] = _smooth_rate(
+                    grp.size(), grp.mean()
+                )
 
-        # --- percentile ranks ---
         self._pr_group_ = ("age_bin_10y", "sex")
-        self._pr_cols_ = [c for c in ["blood_pressure", "cholesterol", "max_hr", "st_depression"] if c in X_tmp.columns]
+        self._pr_cols_ = [
+            c for c in [
+                "blood_pressure",
+                "cholesterol",
+                "max_hr",
+                "st_depression"
+            ] if c in X_tmp.columns]
         self._pr_sorted_: dict[tuple[Any, Any, str], np.ndarray] = {}
         if all(k in X_tmp.columns for k in self._pr_group_):
-            for (ab, sx), sub in X_tmp.groupby(list(self._pr_group_), dropna=False):
+            for (ab, sx), sub in X_tmp.groupby(
+                list(self._pr_group_), dropna=False
+            ):
                 for c in self._pr_cols_:
-                    arr = np.sort(pd.to_numeric(sub[c], errors="coerce").dropna().to_numpy())
+                    arr = np.sort(
+                        pd.to_numeric(sub[c],
+                        errors="coerce").dropna().to_numpy()
+                    )
                     self._pr_sorted_[(ab, sx, c)] = arr
 
-        # --- COMPLETE, STATIC ADDED COL LIST (covers everything transform() can add) ---
+        probe_out = self.transform(Xdf.iloc[:0].copy())
         self._added_cols_ = [
-            # bins
-            "age_bin_10y",
-            "age_bin_5y",
-
-            # log1p + squares
-            "log1p_cholesterol",
-            "cholesterol_sq",
-            "log1p_blood_pressure",
-            "blood_pressure_sq",
-            "log1p_st_depression",
-            "st_depression_sq",
-            "max_hr_sq",
-
-            # ratios
-            "cholesterol_over_blood_pressure",
-            "blood_pressure_over_max_hr",
-            "cholesterol_over_max_hr",
-            "st_depression_over_max_hr",
-            "max_hr_over_age",
-            "blood_pressure_over_age",
-            "cholesterol_over_age",
-            "st_depression_over_age",
-
-            # numeric interactions
-            "age_x_max_hr",
-            "age_x_st_depression",
-            "max_hr_x_st_depression",
-            "blood_pressure_x_st_depression",
-            "cholesterol_x_st_depression",
-            "blood_pressure_x_max_hr",
-            "cholesterol_x_max_hr",
-
-            # group counts (one per group key)
-            "cnt_by_sex",
-            "cnt_by_chest_pain",
-            "cnt_by_exercise_angina",
-            "cnt_by_thallium",
-            "cnt_by_number_vessels",
-            "cnt_by_ekg",
-            "cnt_by_slope_st",
-            "cnt_by_age_bin_10y_sex",
-            "cnt_by_thallium_number_vessels",
-            "cnt_by_sex_chest_pain",
-            "cnt_by_exercise_angina_slope_st",
-
-            # group means (one per group key x numeric stat variable)
-            "mean_bp_by_sex",
-            "mean_chol_by_sex",
-            "mean_hr_by_sex",
-            "mean_stdep_by_sex",
-            "mean_age_by_sex",
-
-            "mean_bp_by_chest_pain",
-            "mean_chol_by_chest_pain",
-            "mean_hr_by_chest_pain",
-            "mean_stdep_by_chest_pain",
-            "mean_age_by_chest_pain",
-
-            "mean_bp_by_exercise_angina",
-            "mean_chol_by_exercise_angina",
-            "mean_hr_by_exercise_angina",
-            "mean_stdep_by_exercise_angina",
-            "mean_age_by_exercise_angina",
-
-            "mean_bp_by_thallium",
-            "mean_chol_by_thallium",
-            "mean_hr_by_thallium",
-            "mean_stdep_by_thallium",
-            "mean_age_by_thallium",
-
-            "mean_bp_by_number_vessels",
-            "mean_chol_by_number_vessels",
-            "mean_hr_by_number_vessels",
-            "mean_stdep_by_number_vessels",
-            "mean_age_by_number_vessels",
-
-            "mean_bp_by_ekg",
-            "mean_chol_by_ekg",
-            "mean_hr_by_ekg",
-            "mean_stdep_by_ekg",
-            "mean_age_by_ekg",
-
-            "mean_bp_by_slope_st",
-            "mean_chol_by_slope_st",
-            "mean_hr_by_slope_st",
-            "mean_stdep_by_slope_st",
-            "mean_age_by_slope_st",
-
-            "mean_bp_by_age_bin_10y_sex",
-            "mean_chol_by_age_bin_10y_sex",
-            "mean_hr_by_age_bin_10y_sex",
-            "mean_stdep_by_age_bin_10y_sex",
-            "mean_age_by_age_bin_10y_sex",
-
-            "mean_bp_by_thallium_number_vessels",
-            "mean_chol_by_thallium_number_vessels",
-            "mean_hr_by_thallium_number_vessels",
-            "mean_stdep_by_thallium_number_vessels",
-            "mean_age_by_thallium_number_vessels",
-
-            "mean_bp_by_sex_chest_pain",
-            "mean_chol_by_sex_chest_pain",
-            "mean_hr_by_sex_chest_pain",
-            "mean_stdep_by_sex_chest_pain",
-            "mean_age_by_sex_chest_pain",
-
-            "mean_bp_by_exercise_angina_slope_st",
-            "mean_chol_by_exercise_angina_slope_st",
-            "mean_hr_by_exercise_angina_slope_st",
-            "mean_stdep_by_exercise_angina_slope_st",
-            "mean_age_by_exercise_angina_slope_st",
-
-            # distance-to-mean (only for age_bin_10y x sex)
-            "bp_minus_mean_bp_by_agebin_sex",
-            "chol_minus_mean_chol_by_agebin_sex",
-            "hr_minus_mean_hr_by_agebin_sex",
-            "stdep_minus_mean_stdep_by_agebin_sex",
-
-            # percentile ranks within (age_bin_10y, sex)
-            "pct_rank_bp_within_agebin_sex",
-            "pct_rank_chol_within_agebin_sex",
-            "pct_rank_hr_within_agebin_sex",
-            "pct_rank_stdep_within_agebin_sex",
+            c for c in probe_out.columns if c not in Xdf.columns
         ]
-
-        # TE column names depend on configuration; add them deterministically from te_cols / te_pair_cols
-        self._added_cols_ += [f"te_{c}" for c in self.te_cols]
-        self._added_cols_ += [f"te_{c1}_{c2}" for (c1, c2) in self.te_pair_cols]
 
         return self
 
@@ -577,16 +606,14 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
         X_out = X.copy()
         new_cols: dict[str, Any] = {}
 
-        # age bins
         age_num = pd.to_numeric(X_out[self.age_col], errors="coerce")
         new_cols["age_bin_10y"] = pd.cut(
-            age_num, bins=self._age_bins_10_, include_lowest=True  # type: ignore
-        ).astype(str)  # type: ignore
+            age_num, bins=self._age_bins_10_, include_lowest=True
+        ).astype(str)
         new_cols["age_bin_5y"] = pd.cut(
-            age_num, bins=self._age_bins_5_, include_lowest=True  # type: ignore
-        ).astype(str)  # type: ignore
+            age_num, bins=self._age_bins_5_, include_lowest=True
+        ).astype(str)
 
-        # --- log1p + squares ---
         if "cholesterol" in X_out.columns:
             chol_num = pd.to_numeric(X_out["cholesterol"], errors="coerce")
             new_cols["log1p_cholesterol"] = np.log1p(chol_num)
@@ -606,104 +633,170 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
             hr_num = pd.to_numeric(X_out["max_hr"], errors="coerce")
             new_cols["max_hr_sq"] = hr_num ** 2
 
-        # --- ratios ---
         def _safe_div(a, b):
             b = pd.to_numeric(b, errors="coerce")
             return pd.to_numeric(a, errors="coerce") / (b.replace(0, np.nan))
 
         if {"cholesterol", "blood_pressure"}.issubset(X_out.columns):
-            new_cols["cholesterol_over_blood_pressure"] = _safe_div(X_out["cholesterol"], X_out["blood_pressure"])
+            new_cols["cholesterol_over_blood_pressure"] = _safe_div(
+                X_out["cholesterol"], X_out["blood_pressure"]
+            )
         if {"blood_pressure", "max_hr"}.issubset(X_out.columns):
-            new_cols["blood_pressure_over_max_hr"] = _safe_div(X_out["blood_pressure"], X_out["max_hr"])
+            new_cols["blood_pressure_over_max_hr"] = _safe_div(
+                X_out["blood_pressure"], X_out["max_hr"]
+            )
         if {"cholesterol", "max_hr"}.issubset(X_out.columns):
-            new_cols["cholesterol_over_max_hr"] = _safe_div(X_out["cholesterol"], X_out["max_hr"])
+            new_cols["cholesterol_over_max_hr"] = _safe_div(
+                X_out["cholesterol"], X_out["max_hr"]
+            )
         if {"st_depression", "max_hr"}.issubset(X_out.columns):
-            new_cols["st_depression_over_max_hr"] = _safe_div(X_out["st_depression"], X_out["max_hr"])
+            new_cols["st_depression_over_max_hr"] = _safe_div(
+                X_out["st_depression"], X_out["max_hr"]
+            )
         if {"max_hr", "age"}.issubset(X_out.columns):
-            new_cols["max_hr_over_age"] = _safe_div(X_out["max_hr"], X_out["age"])
+            new_cols["max_hr_over_age"] = _safe_div(
+                X_out["max_hr"], X_out["age"]
+            )
         if {"blood_pressure", "age"}.issubset(X_out.columns):
-            new_cols["blood_pressure_over_age"] = _safe_div(X_out["blood_pressure"], X_out["age"])
+            new_cols["blood_pressure_over_age"] = _safe_div(
+                X_out["blood_pressure"], X_out["age"]
+            )
         if {"cholesterol", "age"}.issubset(X_out.columns):
-            new_cols["cholesterol_over_age"] = _safe_div(X_out["cholesterol"], X_out["age"])
+            new_cols["cholesterol_over_age"] = _safe_div(
+                X_out["cholesterol"], X_out["age"]
+            )
         if {"st_depression", "age"}.issubset(X_out.columns):
-            new_cols["st_depression_over_age"] = _safe_div(X_out["st_depression"], X_out["age"])
+            new_cols["st_depression_over_age"] = _safe_div(
+                X_out["st_depression"], X_out["age"]
+            )
 
-        # --- numeric interactions (small set) ---
         def _mul(a, b):
-            return pd.to_numeric(a, errors="coerce") * pd.to_numeric(b, errors="coerce")
+            return pd.to_numeric(a, errors="coerce") * (
+                pd.to_numeric(b, errors="coerce")
+            )
 
         if {"age", "max_hr"}.issubset(X_out.columns):
-            new_cols["age_x_max_hr"] = _mul(X_out["age"], X_out["max_hr"])
+            new_cols["age_x_max_hr"] = _mul(
+                X_out["age"], X_out["max_hr"]
+            )
         if {"age", "st_depression"}.issubset(X_out.columns):
-            new_cols["age_x_st_depression"] = _mul(X_out["age"], X_out["st_depression"])
+            new_cols["age_x_st_depression"] = _mul(
+                X_out["age"], X_out["st_depression"]
+            )
         if {"max_hr", "st_depression"}.issubset(X_out.columns):
-            new_cols["max_hr_x_st_depression"] = _mul(X_out["max_hr"], X_out["st_depression"])
+            new_cols["max_hr_x_st_depression"] = _mul(
+                X_out["max_hr"], X_out["st_depression"]
+            )
         if {"blood_pressure", "st_depression"}.issubset(X_out.columns):
-            new_cols["blood_pressure_x_st_depression"] = _mul(X_out["blood_pressure"], X_out["st_depression"])
+            new_cols["blood_pressure_x_st_depression"] = _mul(
+                X_out["blood_pressure"], X_out["st_depression"]
+            )
         if {"cholesterol", "st_depression"}.issubset(X_out.columns):
-            new_cols["cholesterol_x_st_depression"] = _mul(X_out["cholesterol"], X_out["st_depression"])
+            new_cols["cholesterol_x_st_depression"] = _mul(
+                X_out["cholesterol"], X_out["st_depression"]
+            )
         if {"blood_pressure", "max_hr"}.issubset(X_out.columns):
-            new_cols["blood_pressure_x_max_hr"] = _mul(X_out["blood_pressure"], X_out["max_hr"])
+            new_cols["blood_pressure_x_max_hr"] = _mul(
+                X_out["blood_pressure"], X_out["max_hr"]
+            )
         if {"cholesterol", "max_hr"}.issubset(X_out.columns):
-            new_cols["cholesterol_x_max_hr"] = _mul(X_out["cholesterol"], X_out["max_hr"])
+            new_cols["cholesterol_x_max_hr"] = _mul(
+                X_out["cholesterol"], X_out["max_hr"]
+            )
 
-        # group stats helpers use updated bins (from new_cols) when present
         def _col(name: str):
             if name in new_cols:
                 return new_cols[name]
             if name in X_out.columns:
                 return X_out[name]
-            # if a group key column is missing, return a NA series to avoid KeyError
             return pd.Series(pd.NA, index=X_out.index)
 
         def _merge_group_stats(g_tuple: tuple[str, ...]):
-            # counts
             if g_tuple in self._group_count_maps_:
                 cnt = self._group_count_maps_[g_tuple]
                 name = "cnt_by_" + "_".join(g_tuple)
                 frame = pd.DataFrame({k: _col(k) for k in g_tuple})
-                new_cols[name] = pd.MultiIndex.from_frame(frame).map(cnt).fillna(0).astype(float) # type: ignore
+                new_cols[name] = (
+                    pd.MultiIndex.from_frame(frame)
+                    .map(cnt)
+                    .fillna(0)
+                    .astype(float)
+                )
 
-            # means
             if g_tuple in self._group_mean_maps_:
                 means = self._group_mean_maps_[g_tuple]
                 frame = pd.DataFrame({k: _col(k) for k in g_tuple})
                 idx = pd.MultiIndex.from_frame(frame)
                 for c in self._num_for_stats_:
-                    short = "bp" if c == "blood_pressure" else ("chol" if c == "cholesterol" else ("hr" if c == "max_hr" else ("stdep" if c == "st_depression" else c)))
+                    short = "bp" if c == "blood_pressure" else (
+                        "chol" if c == "cholesterol" else (
+                            "hr" if c == "max_hr" else (
+                                "stdep" if c == "st_depression" else c
+                            )
+                        )
+                    )
                     name = f"mean_{short}_by_" + "_".join(g_tuple)
-                    new_cols[name] = idx.map(means[c]).astype(float) # type: ignore
+                    new_cols[name] = idx.map(means[c]).astype(float)
 
         for g in self._group_keys_:
             if all((col in X_out.columns) or (col in new_cols) for col in g):
                 _merge_group_stats(tuple(g))
 
-        # distance-to-mean for (age_bin_10y, sex)
-        if {"age_bin_10y", "sex"}.issubset(set(X_out.columns) | set(new_cols.keys())):
+        if {"age_bin_10y", "sex"}.issubset(
+            set(X_out.columns) | set(new_cols.keys())
+        ):
             g = ("age_bin_10y", "sex")
             means = self._group_mean_maps_.get(g)
             if means is not None:
-                frame = pd.DataFrame({"age_bin_10y": _col("age_bin_10y"), "sex": X_out["sex"]})
+                frame = pd.DataFrame(
+                    {"age_bin_10y": _col("age_bin_10y"), "sex": X_out["sex"]}
+                )
                 idx = pd.MultiIndex.from_frame(frame)
                 if "blood_pressure" in X_out.columns:
-                    new_cols["bp_minus_mean_bp_by_agebin_sex"] = pd.to_numeric(X_out["blood_pressure"], errors="coerce") - idx.map(means["blood_pressure"]) # type: ignore # type: ignore
+                    new_cols["bp_minus_mean_bp_by_agebin_sex"] = (
+                        pd.to_numeric(
+                            X_out["blood_pressure"], errors="coerce"
+                        ) - idx.map(means["blood_pressure"])
+                    )
                 if "cholesterol" in X_out.columns:
-                    new_cols["chol_minus_mean_chol_by_agebin_sex"] = pd.to_numeric(X_out["cholesterol"], errors="coerce") - idx.map(means["cholesterol"]) # type: ignore
+                    new_cols["chol_minus_mean_chol_by_agebin_sex"] = (
+                        pd.to_numeric(
+                            X_out["cholesterol"], errors="coerce"
+                        ) - idx.map(means["cholesterol"])
+                    )
                 if "max_hr" in X_out.columns:
-                    new_cols["hr_minus_mean_hr_by_agebin_sex"] = pd.to_numeric(X_out["max_hr"], errors="coerce") - idx.map(means["max_hr"]) # type: ignore
+                    new_cols["hr_minus_mean_hr_by_agebin_sex"] = (
+                        pd.to_numeric(
+                            X_out["max_hr"], errors="coerce"
+                        ) - idx.map(means["max_hr"])
+                    )
                 if "st_depression" in X_out.columns:
-                    new_cols["stdep_minus_mean_stdep_by_agebin_sex"] = pd.to_numeric(X_out["st_depression"], errors="coerce") - idx.map(means["st_depression"]) # type: ignore
+                    new_cols["stdep_minus_mean_stdep_by_agebin_sex"] = (
+                        pd.to_numeric(
+                            X_out["st_depression"],
+                            errors="coerce"
+                        ) - idx.map(means["st_depression"])
+                    )
 
-        # target encodings
         for c, mp in self._te_maps_.items():
-            new_cols[f"te_{c}"] = X_out[c].astype(str).map(mp).fillna(self._y_mean_).astype(float)
+            new_cols[f"te_{c}"] = (
+                X_out[c].astype(str)
+                .map(mp)
+                .fillna(self._y_mean_)
+                .astype(float)
+            )
 
         for (c1, c2), mp in self._te_pair_maps_.items():
             key = pd.MultiIndex.from_frame(X_out[[c1, c2]].astype(str))
-            new_cols[f"te_{c1}_{c2}"] = key.map(mp).fillna(self._y_mean_).astype(float)
+            new_cols[f"te_{c1}_{c2}"] = (
+                key.map(mp)
+                .fillna(self._y_mean_)
+                .astype(float)
+            )
 
-        # percentile ranks within (age_bin_10y, sex)
-        if {"age_bin_10y", "sex"}.issubset(set(X_out.columns) | set(new_cols.keys())):
+        if {"age_bin_10y", "sex"}.issubset(
+            set(X_out.columns) | set(new_cols.keys())
+        ):
             ab = _col("age_bin_10y")
             sx = X_out["sex"]
             for c in self._pr_cols_:
@@ -718,17 +811,25 @@ class TabularFeatureAugmenter(BaseEstimator, TransformerMixin):
                         continue
                     out[i] = np.searchsorted(arr, vals[i], side="right") / arr.size
 
-                suffix = "bp" if c == "blood_pressure" else ("chol" if c == "cholesterol" else ("hr" if c == "max_hr" else "stdep"))
+                suffix = "bp" if c == "blood_pressure" else (
+                    "chol" if c == "cholesterol" else (
+                        "hr" if c == "max_hr" else "stdep"
+                    )
+                )
                 new_cols[f"pct_rank_{suffix}_within_agebin_sex"] = out
 
         if new_cols:
-            X_out = pd.concat([X_out, pd.DataFrame(new_cols, index=X_out.index)], axis=1)
+            X_out = pd.concat(
+                [X_out, pd.DataFrame(new_cols, index=X_out.index)], axis=1
+            )
 
         return X_out
 
     def get_feature_names_out(self, input_features=None):
             input_features = [] if input_features is None else list(input_features)
-            return np.array(input_features + getattr(self, "_added_cols_", []), dtype=object)
+            return np.array(
+                input_features + getattr(self, "_added_cols_", []), dtype=object
+            )
 
 
 class PostPreAugmenter(BaseEstimator, TransformerMixin):
@@ -747,7 +848,10 @@ class PostPreAugmenter(BaseEstimator, TransformerMixin):
     def fit(self, X: pd.DataFrame, y=None):
         self._sq_cols_ = [c for c in self.add_squares_for if c in X.columns]
         self._log_cols_ = [c for c in self.add_log1p_for if c in X.columns]
-        self._ratios_ = [(n, a, b) for (n, a, b) in self.add_ratios if a in X.columns and b in X.columns]
+        self._ratios_ = [
+            (n, a, b) for (n, a, b) in self.add_ratios if
+            a in X.columns and b in X.columns
+        ]
         return self
 
     def transform(self, X: pd.DataFrame):
@@ -762,16 +866,20 @@ class PostPreAugmenter(BaseEstimator, TransformerMixin):
         if "log1p" in self.blocks:
             for c in self._log_cols_:
                 v = pd.to_numeric(X_out[c], errors="coerce")
-                new_cols[f"{c}__log1p"] = np.log1p(v.clip(lower=0)).fillna(0.0) # type: ignore
+                new_cols[f"{c}__log1p"] = np.log1p(v.clip(lower=0)).fillna(0.0)
 
         if "ratios" in self.blocks:
             for name, num, den in self._ratios_:
                 a = pd.to_numeric(X_out[num], errors="coerce")
                 b = pd.to_numeric(X_out[den], errors="coerce").replace(0, np.nan)
-                new_cols[name] = (a / b).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+                new_cols[name] = (
+                    (a / b).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+                )
 
         if new_cols:
-            X_out = pd.concat([X_out, pd.DataFrame(new_cols, index=X_out.index)], axis=1)
+            X_out = pd.concat(
+                [X_out, pd.DataFrame(new_cols, index=X_out.index)], axis=1
+            )
 
         return X_out
 
@@ -816,67 +924,9 @@ def build_preprocess_pipeline(
             ("chest_pain", "thallium")
         ]
     )
-        
-    # Columns created by TabularFeatureAugmenter
-    tab_aug_cat_cols = ["age_bin_10y", "age_bin_5y"]
-    tab_aug_num_cols = [
-        "log1p_cholesterol", "cholesterol_sq",
-        "log1p_blood_pressure", "blood_pressure_sq",
-        "log1p_st_depression", "st_depression_sq",
-        "max_hr_sq",
-        "cholesterol_over_blood_pressure",
-        "blood_pressure_over_max_hr",
-        "cholesterol_over_max_hr",
-        "st_depression_over_max_hr",
-        "max_hr_over_age",
-        "blood_pressure_over_age",
-        "cholesterol_over_age",
-        "st_depression_over_age",
-        "age_x_max_hr", "age_x_st_depression",
-        "max_hr_x_st_depression",
-        "blood_pressure_x_st_depression",
-        "cholesterol_x_st_depression",
-        "blood_pressure_x_max_hr",
-        "cholesterol_x_max_hr",
-        # group counts (numeric)
-        "cnt_by_sex",
-        "cnt_by_chest_pain",
-        "cnt_by_exercise_angina",
-        "cnt_by_thallium",
-        "cnt_by_number_vessels",
-        "cnt_by_ekg",
-        "cnt_by_slope_st",
-        "cnt_by_age_bin_10y_sex",
-        "cnt_by_thallium_number_vessels",
-        "cnt_by_sex_chest_pain",
-        "cnt_by_exercise_angina_slope_st",
-        # group means (numeric)
-        "mean_bp_by_sex", "mean_chol_by_sex", "mean_hr_by_sex", "mean_stdep_by_sex", "mean_age_by_sex",
-        "mean_bp_by_chest_pain", "mean_chol_by_chest_pain", "mean_hr_by_chest_pain", "mean_stdep_by_chest_pain", "mean_age_by_chest_pain",
-        "mean_bp_by_exercise_angina", "mean_chol_by_exercise_angina", "mean_hr_by_exercise_angina", "mean_stdep_by_exercise_angina", "mean_age_by_exercise_angina",
-        "mean_bp_by_thallium", "mean_chol_by_thallium", "mean_hr_by_thallium", "mean_stdep_by_thallium", "mean_age_by_thallium",
-        "mean_bp_by_number_vessels", "mean_chol_by_number_vessels", "mean_hr_by_number_vessels", "mean_stdep_by_number_vessels", "mean_age_by_number_vessels",
-        "mean_bp_by_ekg", "mean_chol_by_ekg", "mean_hr_by_ekg", "mean_stdep_by_ekg", "mean_age_by_ekg",
-        "mean_bp_by_slope_st", "mean_chol_by_slope_st", "mean_hr_by_slope_st", "mean_stdep_by_slope_st", "mean_age_by_slope_st",
-        "mean_bp_by_age_bin_10y_sex", "mean_chol_by_age_bin_10y_sex", "mean_hr_by_age_bin_10y_sex", "mean_stdep_by_age_bin_10y_sex", "mean_age_by_age_bin_10y_sex",
-        "mean_bp_by_thallium_number_vessels", "mean_chol_by_thallium_number_vessels", "mean_hr_by_thallium_number_vessels", "mean_stdep_by_thallium_number_vessels", "mean_age_by_thallium_number_vessels",
-        "mean_bp_by_sex_chest_pain", "mean_chol_by_sex_chest_pain", "mean_hr_by_sex_chest_pain", "mean_stdep_by_sex_chest_pain", "mean_age_by_sex_chest_pain",
-        "mean_bp_by_exercise_angina_slope_st", "mean_chol_by_exercise_angina_slope_st", "mean_hr_by_exercise_angina_slope_st", "mean_stdep_by_exercise_angina_slope_st", "mean_age_by_exercise_angina_slope_st",
-        # distance-to-mean (numeric)
-        "bp_minus_mean_bp_by_agebin_sex",
-        "chol_minus_mean_chol_by_agebin_sex",
-        "hr_minus_mean_hr_by_agebin_sex",
-        "stdep_minus_mean_stdep_by_agebin_sex",
-        # percentile ranks (numeric)
-        "pct_rank_bp_within_agebin_sex",
-        "pct_rank_chol_within_agebin_sex",
-        "pct_rank_hr_within_agebin_sex",
-        "pct_rank_stdep_within_agebin_sex",
-    ]
 
-    # TE outputs depend on config (here empty lists => none)
-    tab_aug_num_cols += [f"te_{c}" for c in tab_aug.te_cols]
-    tab_aug_num_cols += [f"te_{c1}_{c2}" for (c1, c2) in tab_aug.te_pair_cols]
+    base_cols = list(dict.fromkeys(num_cols + cat_cols))
+    tab_aug_cat_cols, tab_aug_num_cols = tab_aug.infer_added_columns(base_cols)
 
     num_cols_pre = list(dict.fromkeys(num_cols + tab_aug_num_cols))
     cat_cols_pre = list(dict.fromkeys(cat_cols + tab_aug_cat_cols))
@@ -890,12 +940,17 @@ def build_preprocess_pipeline(
     if winsor_cols is not None:
         winsor_cols = [c for c in winsor_cols if c in num_cols_pre]
         if winsor_cols:
-            num_steps.append(("winsor", Winsorizer(limits=(0.01, 0.99), columns=winsor_cols)))
+            num_steps.append(
+                ("winsor",
+                Winsorizer(limits=(0.01, 0.99),
+                columns=winsor_cols))
+            )
 
     if yj_cols:
         yj_ct = ColumnTransformer(
             transformers=[
-                ("yj", PowerTransformer(method="yeo-johnson", standardize=False), yj_cols),
+                ("yj", PowerTransformer(method="yeo-johnson",
+                standardize=False), yj_cols),
                 ("num_rest", "passthrough", other_num_cols),
             ],
             remainder="drop",
@@ -906,10 +961,16 @@ def build_preprocess_pipeline(
     if standardize:
         num_steps.append(("scaler", StandardScaler()))
 
-    num_pipe = Pipeline(num_steps) if num_steps else ("passthrough" if not standardize else Pipeline([("scaler", StandardScaler())]))
+    num_pipe = Pipeline(num_steps) if num_steps else (
+        "passthrough" if not standardize else Pipeline(
+            [("scaler", StandardScaler())]
+        )
+    )
 
     cat_transformer = (
-        OneHotEncoder(drop="first", handle_unknown="ignore", sparse_output=False)
+        OneHotEncoder(
+            drop="first", handle_unknown="ignore", sparse_output=False
+        )
         if one_hot
         else "passthrough"
     )
@@ -927,15 +988,16 @@ def build_preprocess_pipeline(
     )
     pre.set_output(transform="pandas")
 
-    # (Optional) explicitly engineered columns that are already in `num_cols` / `cat_cols`
-    # NOTE: any new columns created here must NOT be before `pre` unless you also pass them into `pre`.
     if engineered_cols:
-        steps.append(("hr_st_feats", HeartRateSTFeatures(age_col="age", max_hr_col="max_hr", st_col="st_depression")))
+        steps.append((
+            "hr_st_feats",
+            HeartRateSTFeatures(
+                age_col="age", max_hr_col="max_hr", st_col="st_depression"
+            )
+        ))
 
-    # --- REORDER: run `pre` early so nothing drops later features ---
     steps.append(("pre", pre))
 
-    # --- NEW: augmentation AFTER pre (effective with remainder="drop") ---
     if augment:
         steps.append(
             ("post_aug", PostPreAugmenter(
@@ -946,7 +1008,6 @@ def build_preprocess_pipeline(
             ))
         )
 
-    # existing post-pre steps (unchanged)
     poly_features = poly_features or []
     if poly_features:
         steps.append(("quad", SelectedQuadratics(features=poly_features)))

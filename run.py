@@ -6,11 +6,8 @@ from pathlib import Path
 import shutil
 import time
 
-# REFACTOR START
-# MOVE TO SEPARATE SCRIPT
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
-# REFACTOR END
 
 from configs.loader import load_yaml
 from src.loading import load_raw_data
@@ -18,6 +15,12 @@ from src.preparation import rename_features, numeric_to_string
 from src.features import build_preprocess_pipeline
 from src.cross_validation import iter_cv_folds
 from src.training import split_dataset
+from src.models.catboost import (
+    fit_catboost,
+    evaluate_catboost,
+    predict_catboost,
+    cat_feature_indices_after_preprocessing,
+)
 from src.models.registry import build_model_registry
 from src.ensemble import evaluate_ensemble
 
@@ -44,185 +47,48 @@ MODEL_REG = build_model_registry(
     XG_PARAMS,
 )
 
-# REFACTOR START
-# Check whether necessary
 FEATURE_KEYS = {
     k for k, v in FEATURES.items() if isinstance(v, dict) and "name_clean" in v
 }
-# REFACTOR END
 
-# REFACTOR START
-# Check whether necessary
-def cat_feature_indices_after_preprocessing(
-        train_Xp: pd.DataFrame, cat_cols: list[str]
-    ) -> list[int]:
-    return [
-        train_Xp.columns.get_loc(c) for c in cat_cols if c in train_Xp.columns
-    ] # type: ignore
-# REFACTOR END
-
-# REFACTOR START:
-# Check whether necessary
 def is_engineered(k: str) -> bool:
     return isinstance(
         FEATURES.get(k), dict
     ) and FEATURES[k].get("source") == "engineered"
-# REFACTOR END
 
-# REFACTOR CURRENT POSITION
-drop_features = [
-    'age_x_number_vessels__age_bin_10y_(35.0, 45.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_10y_(35.0, 45.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_10y_(45.0, 55.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_10y_(45.0, 55.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_10y_(45.0, 55.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_10y_(55.0, 65.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_10y_(55.0, 65.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_10y_(55.0, 65.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_10y_(65.0, 75.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_10y_(65.0, 75.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_10y_(65.0, 75.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_10y_(75.0, 85.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_10y_(75.0, 85.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_10y_(75.0, 85.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_5y_(30.0, 35.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_5y_(30.0, 35.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_5y_(30.0, 35.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_5y_(35.0, 40.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_5y_(35.0, 40.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_5y_(35.0, 40.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_5y_(40.0, 45.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_5y_(40.0, 45.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_5y_(40.0, 45.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_5y_(45.0, 50.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_5y_(45.0, 50.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_5y_(45.0, 50.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_5y_(50.0, 55.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_5y_(50.0, 55.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_5y_(50.0, 55.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_5y_(55.0, 60.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_5y_(55.0, 60.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_5y_(55.0, 60.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_5y_(60.0, 65.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_5y_(60.0, 65.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_5y_(60.0, 65.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_5y_(65.0, 70.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_5y_(65.0, 70.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_5y_(65.0, 70.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_5y_(70.0, 75.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_5y_(70.0, 75.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_5y_(70.0, 75.0]__x__number_vessels_zero',
-    'age_x_number_vessels__age_bin_5y_(75.0, 80.0]__x__number_vessels_three',
-    'age_x_number_vessels__age_bin_5y_(75.0, 80.0]__x__number_vessels_two',
-    'age_x_number_vessels__age_bin_5y_(75.0, 80.0]__x__number_vessels_zero',
-    'age_x_thallium__age_bin_10y_(35.0, 45.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_10y_(35.0, 45.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_10y_(45.0, 55.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_10y_(45.0, 55.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_10y_(55.0, 65.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_10y_(55.0, 65.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_10y_(65.0, 75.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_10y_(65.0, 75.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_10y_(75.0, 85.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_10y_(75.0, 85.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_5y_(30.0, 35.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_5y_(30.0, 35.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_5y_(35.0, 40.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_5y_(35.0, 40.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_5y_(40.0, 45.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_5y_(40.0, 45.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_5y_(45.0, 50.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_5y_(45.0, 50.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_5y_(50.0, 55.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_5y_(50.0, 55.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_5y_(55.0, 60.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_5y_(55.0, 60.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_5y_(60.0, 65.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_5y_(60.0, 65.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_5y_(65.0, 70.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_5y_(65.0, 70.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_5y_(70.0, 75.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_5y_(70.0, 75.0]__x__thallium_reversible defect',
-    'age_x_thallium__age_bin_5y_(75.0, 80.0]__x__thallium_normal',
-    'age_x_thallium__age_bin_5y_(75.0, 80.0]__x__thallium_reversible defect',
-    'age_x_exercise_angina__age_bin_10y_(35.0, 45.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_10y_(45.0, 55.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_10y_(55.0, 65.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_10y_(65.0, 75.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_10y_(75.0, 85.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_5y_(30.0, 35.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_5y_(35.0, 40.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_5y_(40.0, 45.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_5y_(45.0, 50.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_5y_(50.0, 55.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_5y_(55.0, 60.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_5y_(60.0, 65.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_5y_(65.0, 70.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_5y_(70.0, 75.0]__x__exercise_angina_True',
-    'age_x_exercise_angina__age_bin_5y_(75.0, 80.0]__x__exercise_angina_True',
-    'age_x_number_vessels__age_bin_10y_(35.0, 45.0]__x__number_vessels_three',
-    'num_rest__mean_bp_by_exercise_angina',
-    'num_rest__mean_chol_by_exercise_angina',
-    'num_rest__mean_hr_by_exercise_angina',
-    'num_rest__mean_stdep_by_exercise_angina',
-    'num_rest__mean_age_by_exercise_angina',
-    'num_rest__mean_bp_by_thallium',
-    'num_rest__mean_chol_by_thallium',
-    'num_rest__mean_hr_by_thallium',
-    'num_rest__mean_stdep_by_thallium',
-    'num_rest__mean_age_by_thallium',
-    'num_rest__mean_bp_by_number_vessels',
-    'num_rest__mean_chol_by_number_vessels',
-    'num_rest__mean_hr_by_number_vessels',
-    'num_rest__mean_stdep_by_number_vessels',
-    'num_rest__mean_age_by_number_vessels',
-    'num_rest__mean_bp_by_sex',
-    'num_rest__mean_chol_by_sex',
-    'num_rest__mean_hr_by_sex',
-    'num_rest__mean_stdep_by_sex',
-    'num_rest__mean_age_by_sex',
-    'num_rest__mean_bp_by_chest_pain',
-    'num_rest__mean_chol_by_chest_pain',
-    'num_rest__mean_hr_by_chest_pain',
-    'num_rest__mean_stdep_by_chest_pain',
-    'num_rest__mean_age_by_chest_pain',
-    'num_rest__mean_bp_by_ekg',
-    'num_rest__mean_chol_by_ekg',
-    'num_rest__mean_hr_by_ekg',
-    'num_rest__mean_stdep_by_ekg',
-    'num_rest__mean_age_by_ekg',
-    'num_rest__mean_bp_by_slope_st',
-    'num_rest__mean_chol_by_slope_st',
-    'num_rest__mean_hr_by_slope_st',
-    'num_rest__mean_stdep_by_slope_st',
-    'num_rest__mean_age_by_slope_st',
-    'num_rest__cholesterol_over_blood_pressure',
-    'num_rest__blood_pressure_over_max_hr',
-    'num_rest__cholesterol_over_max_hr',
-    'num_rest__st_depression_over_max_hr',
-    'num_rest__max_hr_over_age',
-    'num_rest__blood_pressure_over_age',
-    'num_rest__cholesterol_over_age',
-    'num_rest__st_depression_over_age',
-    'num_rest__age_x_max_hr',
-    'num_rest__age_x_st_depression',
-    'num_rest__max_hr_x_st_depression',
-    'num_rest__blood_pressure_x_st_depression',
-    'num_rest__cholesterol_x_st_depression',
-    'num_rest__blood_pressure_x_max_hr',
-    'num_rest__cholesterol_x_max_hr',
-    'num_rest__cnt_by_sex',
-    'num_rest__cnt_by_chest_pain',
-    'num_rest__cnt_by_exercise_angina',
-    'num_rest__cnt_by_thallium',
-    'num_rest__cnt_by_number_vessels',
-    'num_rest__cnt_by_ekg',
-    'num_rest__cnt_by_slope_st',
-    'num_rest__cnt_by_age_bin_10y_sex',
-    'num_rest__cnt_by_thallium_number_vessels',
-    'num_rest__cnt_by_sex_chest_pain',
-    'num_rest__cnt_by_exercise_angina_slope_st',
-]
+def build_drop_features(columns: list[str], cfg: dict) -> list[str]:
+    disabled = {k for k, v in cfg.items() if int(v) == 0}
+    drop_features: list[str] = []
+
+    for col in columns:
+        tail = col.split("__")[-1]
+
+        if "age_x_exercise_angina" in disabled and "age_x_exercise_angina__" in col:
+            drop_features.append(col)
+            continue
+        if "age_x_number_vessels" in disabled and "age_x_number_vessels__" in col:
+            drop_features.append(col)
+            continue
+        if "age_x_thallium" in disabled and "age_x_thallium__" in col:
+            drop_features.append(col)
+            continue
+
+        if "age_bin_10y" in disabled and (
+            tail == "age_bin_10y" or tail.startswith("age_bin_10y_")
+        ):
+            drop_features.append(col)
+            continue
+        if "age_bin_5y" in disabled and (
+            tail == "age_bin_5y" or tail.startswith("age_bin_5y_")
+        ):
+            drop_features.append(col)
+            continue
+
+        if tail in disabled:
+            drop_features.append(col)
+
+    return drop_features
+
 
 if __name__ == "__main__":
     """
@@ -381,20 +247,8 @@ if __name__ == "__main__":
     ]
     poly_features = [c for c in poly_features if c in num_cols]
 
-    spline_features = [
-        FEATURES[key]["name_clean"] if key in FEATURE_KEYS else key
-        for key, value in RU_CONFIG["spline_features"].items()
-        if value == 1
-    ]
-    spline_features = [c for c in spline_features if c in num_cols]
+    additional_features_cfg = RU_CONFIG.get("additional_features", {})
 
-    MONO_SPEC = {
-        "number_vessels": +1,
-        "st_depression": +1,
-        "exercise_angina": +1,
-        "thallium_fixed_defect": +1,
-        "thallium_reversible_defect": +1,
-    }
     # Select features
 
     train_data_prepared = train_data_converted[
@@ -407,11 +261,7 @@ if __name__ == "__main__":
     ## Initiate output
 
     cv_scores_list = []
-
-    cv_scores_filt_list = []
-
     oof_pred_all = pd.DataFrame(index=train_data_prepared.index)
-
     output_df = pd.DataFrame()
 
     ## Create model loop
@@ -430,7 +280,7 @@ if __name__ == "__main__":
 
         oof_proba = pd.Series(index=train_data_prepared.index, dtype=float)
 
-        for fold_idx, train_df, val_df in cv_iterator:
+        for _, train_df, val_df in cv_iterator:
             train_X, train_y = split_dataset(train_df, label_col)
             val_X, val_y = split_dataset(val_df, label_col)
             
@@ -446,29 +296,50 @@ if __name__ == "__main__":
                 poly_features=poly_features,
                 winsor_cols=winsor_features,
                 augment_blocks=["squares", "log1p", "ratios"],
-                augment_squares_for=["cholesterol", "blood_pressure", "st_depression", "max_hr"],
-                augment_log1p_for=["cholesterol", "blood_pressure", "st_depression"],
+                augment_squares_for=[
+                    "cholesterol",
+                    "blood_pressure",
+                    "st_depression",
+                    "max_hr"
+                ],
+                augment_log1p_for=[
+                    "cholesterol",
+                    "blood_pressure",
+                    "st_depression"
+                ],
                 augment_ratios=[
-                    ("cholesterol_over_blood_pressure", "cholesterol", "blood_pressure"),
-                    ("st_depression_over_max_hr", "st_depression", "max_hr"),
-                    ("max_hr_over_age", "max_hr", "age"),
+                    ("cholesterol_over_blood_pressure",
+                     "cholesterol",
+                     "blood_pressure"),
+                    ("st_depression_over_max_hr",
+                     "st_depression",
+                     "max_hr"),
+                    ("max_hr_over_age",
+                     "max_hr",
+                     "age"),
                 ]
             )
             
             train_Xp = pre_pipe.fit_transform(train_X, train_y)
-            print("Initial number of features:")
-            print(len(train_Xp.columns))          
             val_Xp   = pre_pipe.transform(val_X)
+
+            drop_features = build_drop_features(
+                list(train_Xp.columns), additional_features_cfg
+            )
 
             train_Xp = train_Xp.drop(
                columns=[c for c in drop_features if c in train_Xp.columns]
             )
+            val_Xp = val_Xp.drop(
+               columns=[c for c in drop_features if c in val_Xp.columns]
+            )
             val_Xp = val_Xp.reindex(columns=train_Xp.columns, fill_value=0.0)
-            print("Adapted number of features:")
-            print(len(train_Xp.columns))
 
             if model == "catboost" and not PARAMS["one_hot"]:
-                interval_cols = [c for c in train_Xp.columns if str(train_Xp[c].dtype) == "interval"]
+                interval_cols = [
+                    c for c in train_Xp.columns
+                    if str(train_Xp[c].dtype) == "interval"
+                ]
                 for c in interval_cols:
                     train_Xp[c] = train_Xp[c].astype("string")
                     val_Xp[c]   = val_Xp[c].astype("string")
@@ -479,32 +350,43 @@ if __name__ == "__main__":
                         s = train_Xp[c].astype(str)
                         if s.str.match(r"^\(.*,\s*.*\]$").any():
                             train_Xp[c] = train_Xp[c].astype("string")
-                            val_Xp[c]   = val_Xp[c].astype("string")   # CV
+                            val_Xp[c]   = val_Xp[c].astype("string")
             
             PARAMS_FOLD = PARAMS
             
             if model.startswith("lightgbm"):
                 PARAMS_FOLD = PARAMS.copy()
-                #PARAMS_FOLD["monotone_constraints"] = build_monotone_constraints(train_Xp, MONO_SPEC)
-                #PARAMS_FOLD["monotone_constraints_method"] = "advanced"
             
             if model == "catboost" and not PARAMS["one_hot"]:
                 for c in train_Xp.columns:
                     if not is_numeric_dtype(train_Xp[c]):
                         train_Xp[c] = train_Xp[c].astype("string")
                         val_Xp[c]   = val_Xp[c].astype("string")
-                cb_cat_cols = [c for c in train_Xp.columns if train_Xp[c].dtype.name in ("object", "string", "category")]
-                cb_cat_features = [train_Xp.columns.get_loc(c) for c in cb_cat_cols]
-                ml_model = fit_catboost(train_Xp, train_y, PARAMS, cat_features=cb_cat_features)
-                ml_model_scores = evaluate_catboost(ml_model, val_Xp, val_y, cat_features=cb_cat_features)
+                cb_cat_cols = [
+                    c for c in train_Xp.columns
+                    if train_Xp[c].dtype.name in ("object", "string", "category")
+                ]
+                cb_cat_features = cat_feature_indices_after_preprocessing(
+                    train_Xp, cb_cat_cols
+                )
+                ml_model = fit_catboost(
+                    train_Xp, train_y, PARAMS, cat_features=cb_cat_features
+                )
+                ml_model_scores = evaluate_catboost(
+                    ml_model, val_Xp, val_y, cat_features=cb_cat_features
+                )
             else:
                 ml_model = MODEL_REG[model].fit(train_Xp, train_y, PARAMS_FOLD)
-                ml_model_scores = MODEL_REG[model].evaluate(ml_model, val_Xp, val_y)
+                ml_model_scores = MODEL_REG[model].evaluate(
+                    ml_model, val_Xp, val_y
+                )
 
             cv_scores_list.append(ml_model_scores)
 
             if model == "catboost" and not PARAMS["one_hot"]:
-                p_val = predict_catboost(ml_model, val_Xp, cat_features=cb_cat_features) # type: ignore
+                p_val = predict_catboost(
+                    ml_model, val_Xp, cat_features=cb_cat_features
+                )
             else:
                 p_val = MODEL_REG[model].predict(ml_model, val_Xp)
 
@@ -512,83 +394,10 @@ if __name__ == "__main__":
 
         oof_pred_all[model] = oof_proba.astype(float)
 
-        # Filter out label disagreemtns
-
-        y = train_data_prepared[label_col]
-
-        t = 0.95
-        flag = ((y == 0) & (oof_proba >= t)) | ((y == 1) & (oof_proba <= 1 - t))
-
-        suspicion = pd.Series(0.0, index=y.index)
-        
-        suspicion.loc[(y == 0)] = oof_proba.loc[(y == 0)]
-        suspicion.loc[(y == 1)] = (1 - oof_proba.loc[(y == 1)])
-
-        suspicion = suspicion.where(flag, 0.0)
-
-        q = 0.02  # 2%
-        n_drop = int(len(train_data_prepared) * q)
-
-        cand = suspicion[suspicion > 0].sort_values(ascending=False)
-        drop_idx = cand.head(min(n_drop, len(cand))).index
-        train_data_clean = train_data_prepared.drop(index=drop_idx)
-
-        """
-        ## Second run with cleaner data
-            
-        cv_iterator = iter_cv_folds(train_data_clean, label_col, CV_CONFIG)
-
-        for fold_idx, train_df, val_df in cv_iterator:
-            train_X, train_y = split_dataset(train_df, label_col)
-            val_X, val_y = split_dataset(val_df, label_col)
-                
-            pre_pipe = build_preprocess_pipeline(
-                num_cols=num_cols,
-                cat_cols=cat_cols,
-                yj_cols=yj_cols,
-                standardize=bool(RU_CONFIG["standardize"]),
-                one_hot=PARAMS["one_hot"],
-                augment=PARAMS["augment"],
-                engineered_cols=engineered_cols,
-                interactions=interactions,
-                poly_features=poly_features,
-                winsor_cols=winsor_features,
-                augment_blocks=["squares", "log1p", "ratios"],
-                augment_squares_for=["cholesterol", "blood_pressure", "st_depression", "max_hr"],
-                augment_log1p_for=["cholesterol", "blood_pressure", "st_depression"],
-                augment_ratios=[
-                    ("cholesterol_over_blood_pressure", "cholesterol", "blood_pressure"),
-                    ("st_depression_over_max_hr", "st_depression", "max_hr"),
-                    ("max_hr_over_age", "max_hr", "age"),
-                ]
-            )
-                    
-            train_Xp = pre_pipe.fit_transform(train_X, train_y)
-            val_Xp   = pre_pipe.transform(val_X)
-
-            PARAMS_FOLD = PARAMS
-            if model.startswith("lightgbm"):
-                PARAMS_FOLD = PARAMS.copy()
-                #PARAMS_FOLD["monotone_constraints"] = build_monotone_constraints(train_Xp, MONO_SPEC)
-                #PARAMS_FOLD["monotone_constraints_method"] = "advanced"
-
-            if model == "catboost" and not PARAMS["one_hot"]:
-                cb_cat_features = cat_feature_indices_after_preprocessing(train_Xp, cat_cols) # type: ignore
-                ml_model = fit_catboost(train_Xp, train_y, PARAMS, cat_features=cb_cat_features)
-                ml_model_scores = evaluate_catboost(ml_model, val_Xp, val_y, cat_features=cb_cat_features)
-            else:
-                ml_model = MODEL_REG[model].fit(train_Xp, train_y, PARAMS_FOLD)
-                ml_model_scores = MODEL_REG[model].evaluate(ml_model, val_Xp, val_y)
-
-            cv_scores_filt_list.append(ml_model_scores)
-
-        """
-
         # Fit full model
+
         if RU_CONFIG["fit_model"]:
-        
-            label_col=PR_CONFIG["label_col"]
-            
+
             train_X, train_y = split_dataset(train_data_prepared, label_col)
 
             pre_pipe = build_preprocess_pipeline(
@@ -603,12 +412,27 @@ if __name__ == "__main__":
                 poly_features=poly_features,
                 winsor_cols=winsor_features,
                 augment_blocks=["squares", "log1p", "ratios"],
-                augment_squares_for=["cholesterol", "blood_pressure", "st_depression", "max_hr"],
-                augment_log1p_for=["cholesterol", "blood_pressure", "st_depression"],
+                augment_squares_for=[
+                    "cholesterol",
+                    "blood_pressure",
+                    "st_depression",
+                    "max_hr"
+                ],
+                augment_log1p_for=[
+                    "cholesterol",
+                    "blood_pressure",
+                    "st_depression"
+                ],
                 augment_ratios=[
-                    ("cholesterol_over_blood_pressure", "cholesterol", "blood_pressure"),
-                    ("st_depression_over_max_hr", "st_depression", "max_hr"),
-                    ("max_hr_over_age", "max_hr", "age"),
+                    ("cholesterol_over_blood_pressure",
+                     "cholesterol",
+                     "blood_pressure"),
+                    ("st_depression_over_max_hr",
+                     "st_depression",
+                     "max_hr"),
+                    ("max_hr_over_age",
+                     "max_hr",
+                     "age"),
                 ]
             )
 
@@ -617,11 +441,23 @@ if __name__ == "__main__":
             test_X = test_data_prepared
             test_Xp = pre_pipe.transform(test_X)
 
-            train_Xp = train_Xp.drop(columns=[c for c in drop_features if c in train_Xp.columns])
-            test_Xp  = test_Xp.reindex(columns=train_Xp.columns, fill_value=0.0)
+            drop_features = build_drop_features(
+                list(train_Xp.columns), additional_features_cfg
+            )
+
+            train_Xp = train_Xp.drop(
+               columns=[c for c in drop_features if c in train_Xp.columns]
+            )
+            test_Xp = test_Xp.drop(
+               columns=[c for c in drop_features if c in test_Xp.columns]
+            )
+            test_Xp = test_Xp.reindex(columns=train_Xp.columns, fill_value=0.0)
             
             if model == "catboost" and not PARAMS["one_hot"]:
-                interval_cols = [c for c in train_Xp.columns if str(train_Xp[c].dtype) == "interval"]
+                interval_cols = [
+                    c for c in train_Xp.columns
+                    if str(train_Xp[c].dtype) == "interval"
+                ]
                 for c in interval_cols:
                     train_Xp[c] = train_Xp[c].astype("string")
                     test_Xp[c]  = test_Xp[c].astype("string")
@@ -637,21 +473,31 @@ if __name__ == "__main__":
             PARAMS_FULL = PARAMS
             if model.startswith("lightgbm"):
                 PARAMS_FULL = PARAMS.copy()
-                #PARAMS_FULL["monotone_constraints"] = build_monotone_constraints(train_Xp, MONO_SPEC)
-                #PARAMS_FULL["monotone_constraints_method"] = "advanced"
             
             if model == "catboost" and not PARAMS["one_hot"]:
                 for c in train_Xp.columns:
                     if not is_numeric_dtype(train_Xp[c]):
                         train_Xp[c] = train_Xp[c].astype("string")
                         test_Xp[c]   = test_Xp[c].astype("string")
-                cb_cat_cols = [c for c in train_Xp.columns if train_Xp[c].dtype.name in ("object", "string", "category")]
-                cb_cat_features = [train_Xp.columns.get_loc(c) for c in cb_cat_cols]
+                cb_cat_cols = [
+                    c for c in train_Xp.columns
+                    if train_Xp[c].dtype.name
+                    in ("object", "string", "category")
+                ]
+                cb_cat_features = cat_feature_indices_after_preprocessing(
+                    train_Xp, cb_cat_cols
+                )
 
-                full_ml_model = fit_catboost(train_Xp, train_y, PARAMS, cat_features=cb_cat_features)
-                y_proba = predict_catboost(full_ml_model, test_Xp, cat_features=cb_cat_features)
+                full_ml_model = fit_catboost(
+                    train_Xp, train_y, PARAMS, cat_features=cb_cat_features
+                )
+                y_proba = predict_catboost(
+                    full_ml_model, test_Xp, cat_features=cb_cat_features
+                )
             else:
-                full_ml_model = MODEL_REG[model].fit(train_Xp, train_y, PARAMS_FULL)
+                full_ml_model = MODEL_REG[model].fit(
+                    train_Xp, train_y, PARAMS_FULL
+                )
                 y_proba = MODEL_REG[model].predict(full_ml_model, test_Xp)
 
             # Store regression table
@@ -660,12 +506,19 @@ if __name__ == "__main__":
                 model == "logistic_regression" and
                 RU_CONFIG["store_regression"]
             ):
-                store_regression_table(train_Xp, train_y, output_dir) # type: ignore
+                store_regression_fn = globals().get("store_regression_table")
+                if callable(store_regression_fn):
+                    store_regression_fn(train_Xp, train_y, output_dir)
+                else:
+                    print(
+                        "Skipping regression table export: "
+                        "store_regression_table is unavailable."
+                    )
 
             # Store model
 
             if store_model:
-                MODEL_REG[model].store(full_ml_model, dst_dir, model) # type: ignore
+                MODEL_REG[model].store(full_ml_model, dst_dir, model)
 
             # Predict values for test data
             
@@ -684,13 +537,6 @@ if __name__ == "__main__":
     print(cv_scores_table)
     cv_scores_table.to_csv(output_dir / "cv_scores.csv", index=False)
 
-    
-    """
-    cv_scores_filt = pd.concat(cv_scores_filt_list, axis=0, ignore_index=True)
-    cv_scores_filt_table = cv_scores_filt.describe().round(5)
-    cv_scores_filt_table.to_csv(output_dir / "cv_scores_filt.csv", index=False)
-    """
-
     ## Full model scores
 
     stack = None
@@ -700,77 +546,33 @@ if __name__ == "__main__":
 
         oof_cols = [
             m for m in RU_CONFIG["models"]
-            if (m in oof_pred_all.columns) and (f"y_proba_{m}" in output_df.columns)
+            if (m in oof_pred_all.columns)
+            and (f"y_proba_{m}" in output_df.columns)
         ]
 
-        ens_cfg = RU_CONFIG.get("ensemble", {"method": "mean"})
-        if ens_cfg.get("method") == "stacking_regression":
-            X_oof = oof_pred_all[oof_cols].copy()
-            y = train_data_prepared[PR_CONFIG["label_col"]].copy()
-
-            mask = X_oof.notna().all(axis=1)
-            X_oof = X_oof.loc[mask]
-            y = y.loc[mask]
-
-            print("y mean:", float(y.mean()))
-            print("OOF base std:", X_oof.std().to_dict())
-            for c in X_oof.columns:
-                print(c, "min/max", float(X_oof[c].min()), float(X_oof[c].max()))
-
-            stack = fit_stacking_regression(
-                oof_pred=X_oof,
-                y=y,
-                kind=ens_cfg.get("meta_model", "ridge"),
-                alpha=float(ens_cfg.get("meta_alpha", 1.0)),
-                clip_proba=float(ens_cfg.get("clip_proba", 1e-6)),
-                standardize=True,
-                use_logit_features=True,   # critical: use logits for both ridge/logistic
-            )
-
-            oof_stacked = predict_stacking_regression(stack, X_oof)
-            print("OOF stacked:", float(oof_stacked.min()), float(oof_stacked.max()), float(oof_stacked.std()))
-            full_score = evaluate_ensemble(y, oof_stacked)
-
-        else:
-            X_oof = oof_pred_all[oof_cols]
-            mask = X_oof.notna().all(axis=1)
-            oof_mean = X_oof.loc[mask].mean(axis=1)
-            full_score = evaluate_ensemble(y_true.loc[mask], oof_mean)
+        X_oof = oof_pred_all[oof_cols]
+        mask = X_oof.notna().all(axis=1)
+        oof_mean = X_oof.loc[mask].mean(axis=1)
+        full_score = evaluate_ensemble(y_true.loc[mask], oof_mean)
 
         with open(output_dir / "full_score.csv", "w") as f:
             f.write(f"{full_score:.5f}\n")
 
-
-    ## Predicted probabilities (reuse fitted stack)
-    ens_cfg = RU_CONFIG.get("ensemble", {"method": "mean"})
-    method = ens_cfg.get("method", "mean")
+    ## Predicted probabilities
 
     base_cols = [
         f"y_proba_{m}" for m in RU_CONFIG["models"]
         if f"y_proba_{m}" in output_df.columns
     ]
 
-    if method == "stacking_regression" and RU_CONFIG["fit_model"]:
-        if stack is None:
-            raise RuntimeError("Expected fitted stacking model, but stack is None.")
-
-        oof_cols = list(stack.feature_names)  # enforce same order as training
-
-        X_test = pd.DataFrame(
-            {m: output_df[f"y_proba_{m}"].astype(float).to_numpy() for m in oof_cols},
-            index=output_df.index,
-        )
-
-        output_df["final_predictions"] = predict_stacking_regression(stack, X_test).to_numpy()
-
-    else:
-        # Fallback: simple mean
-        output_df["final_predictions"] = 0.0
-        num_models = 0
-        for col in base_cols:
-            num_models += 1
-            output_df["final_predictions"] += output_df[col]
-        output_df["final_predictions"] = output_df["final_predictions"] / max(num_models, 1)
+    output_df["final_predictions"] = 0.0
+    num_models = 0
+    for col in base_cols:
+        num_models += 1
+        output_df["final_predictions"] += output_df[col]
+    output_df["final_predictions"] = (
+        output_df["final_predictions"] / max(num_models, 1)
+    )
 
     output_df.to_csv(output_dir / "predictions.csv", index=False)
     

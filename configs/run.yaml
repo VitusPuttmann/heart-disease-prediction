@@ -1,37 +1,30 @@
 # Configuration for the ML project run
 
-## Define model:
+## Models
+
 models: 
   - lightgbm_main
-  #- xgboost
-  #- catboost
-  
   #- lightgbm_deep_expressive
   #- lightgbm_strong_reg
   #- lightgbm_boost
   #- lightgbm_more_subs
+  #- xgboost
+  #- catboost
   #- neural_net
   #- logistic_regression
   #- real_mlp
 
-## Define ensemble
-ensemble:
-  method: mean          # options: mean, stacking_regression
-  meta_model: logistic                    # options: ridge, logistic
-  meta_alpha: 1.0                      # ridge regularization strength
-  use_oof: true                        # train meta-model on out-of-fold preds
-  clip_proba: 1e-3                    # for numerical stability (if using logit)
+## CV Splits
 
-## Define number of CV splits (2 for neural net / 5 for logistic regression)
 cv_splits: 2
 
-## Define full model storage
-store_regression:   false
+## Model Storage
 fit_model:          false
 store_model:        false
 storage_name:       null
 
-## Define features (0 = exclude / 1 = include)
+## Features (0 = exclude / 1 = include)
+
 features:
   id:                 0
   age:                1
@@ -57,23 +50,27 @@ features:
   fbs_high:           1
   risk_count:         1
 
-## Define winsorization (0 = exclude / 1 = include)
+## Winsorization (0 = do not apply / 1 = apply)
+
 winsor_features:
   blood_pressure:     0
   cholesterol:        0
   max_hr:             0
   st_depression:      1
 
-## Define Yeo-Johnson transformation (0 = exclude / 1 = include)
+## Yeo-Johnson Transformation (0 = do not apply / 1 = apply)
+
 yeojohnson:
   blood_pressure:     0
   cholesterol:        0
   slope_st:           1
 
-## Define standardization
+## Standardization
+
 standardize: true
 
-## Define interactions (0 = exclude / 1 = include)
+## Interactions (0 = exclude / 1 = include)
+
 age_x_sex:                          1
 age_x_chest_pain:                   1
 age_x_exercise_angina:              1
@@ -125,7 +122,8 @@ number_vessels_x_thallium:          0
 st_per_hr_x_exercise_angina:        0
 hr_deficit_x_exercise_angina:       0
 
-## Define polynomials (0 = exclude / 1 = include)
+## Polynomials (0 = exclude / 1 = include)
+
 poly_features:
   age:                0
   blood_pressure:     0
@@ -134,7 +132,8 @@ poly_features:
   st_depression:      0
   slope_st:           1
 
-## Define splines (0 = exclude / 1 = include)
+## Splines (0 = exclude / 1 = include)
+
 spline_features:
   age:                0
   blood_pressure:     0
@@ -142,3 +141,132 @@ spline_features:
   max_hr:             0
   st_depression:      0
   slope_st:           0
+
+## Additional Features (0 = exclude / 1 = include)
+
+additional_features:
+
+  # Interaction Families
+  age_x_exercise_angina:            0
+  age_x_number_vessels:             0
+  age_x_thallium:                   0
+
+  # Bins
+  age_bin_10y:                      1
+  age_bin_5y:                       1
+
+  # Log / Square features
+  log1p_cholesterol:                1
+  cholesterol_sq:                   1
+  log1p_blood_pressure:             1
+  blood_pressure_sq:                1
+  log1p_st_depression:              1
+  st_depression_sq:                 1
+  max_hr_sq:                        1
+
+  # Ratio / Interactions
+  cholesterol_over_blood_pressure:  0
+  blood_pressure_over_max_hr:       0
+  cholesterol_over_max_hr:          0
+  st_depression_over_max_hr:        0
+  max_hr_over_age:                  0
+  blood_pressure_over_age:          0
+  cholesterol_over_age:             0
+  st_depression_over_age:           0
+  age_x_max_hr:                     0
+  age_x_st_depression:              0
+  max_hr_x_st_depression:           0
+  blood_pressure_x_st_depression:   0
+  cholesterol_x_st_depression:      0
+  blood_pressure_x_max_hr:          0
+  cholesterol_x_max_hr:             0
+
+  # Group Counts
+  cnt_by_sex:                       0
+  cnt_by_chest_pain:                0
+  cnt_by_exercise_angina:           0
+  cnt_by_thallium:                  0
+  cnt_by_number_vessels:            0
+  cnt_by_ekg:                       0
+  cnt_by_slope_st:                  0
+  cnt_by_age_bin_10y_sex:           0
+  cnt_by_thallium_number_vessels:   0
+  cnt_by_sex_chest_pain:            0
+  cnt_by_exercise_angina_slope_st:  0
+
+  # Group Means
+  mean_bp_by_sex:                      0
+  mean_chol_by_sex:                    0
+  mean_hr_by_sex:                      0
+  mean_stdep_by_sex:                   0
+  mean_age_by_sex:                     0
+  mean_bp_by_chest_pain:               0
+  mean_chol_by_chest_pain:             0
+  mean_hr_by_chest_pain:               0
+  mean_stdep_by_chest_pain:            0
+  mean_age_by_chest_pain:              0
+  mean_bp_by_exercise_angina:          0
+  mean_chol_by_exercise_angina:        0
+  mean_hr_by_exercise_angina:          0
+  mean_stdep_by_exercise_angina:       0
+  mean_age_by_exercise_angina:         0
+  mean_bp_by_thallium:                 0
+  mean_chol_by_thallium:               0
+  mean_hr_by_thallium:                 0
+  mean_stdep_by_thallium:              0
+  mean_age_by_thallium:                0
+  mean_bp_by_number_vessels:           0
+  mean_chol_by_number_vessels:         0
+  mean_hr_by_number_vessels:           0
+  mean_stdep_by_number_vessels:        0
+  mean_age_by_number_vessels:          0
+  mean_bp_by_ekg:                      0
+  mean_chol_by_ekg:                    0
+  mean_hr_by_ekg:                      0
+  mean_stdep_by_ekg:                   0
+  mean_age_by_ekg:                     0
+  mean_bp_by_slope_st:                 0
+  mean_chol_by_slope_st:               0
+  mean_hr_by_slope_st:                 0
+  mean_stdep_by_slope_st:              0
+  mean_age_by_slope_st:                0
+  mean_bp_by_age_bin_10y_sex:          0
+  mean_chol_by_age_bin_10y_sex:        0
+  mean_hr_by_age_bin_10y_sex:          0
+  mean_stdep_by_age_bin_10y_sex:       0
+  mean_age_by_age_bin_10y_sex:         0
+  mean_bp_by_thallium_number_vessels:       0
+  mean_chol_by_thallium_number_vessels:     0
+  mean_hr_by_thallium_number_vessels:       0
+  mean_stdep_by_thallium_number_vessels:    0
+  mean_age_by_thallium_number_vessels:      0
+  mean_bp_by_sex_chest_pain:                0
+  mean_chol_by_sex_chest_pain:              0
+  mean_hr_by_sex_chest_pain:                0
+  mean_stdep_by_sex_chest_pain:             0
+  mean_age_by_sex_chest_pain:               0
+  mean_bp_by_exercise_angina_slope_st:      0
+  mean_chol_by_exercise_angina_slope_st:    0
+  mean_hr_by_exercise_angina_slope_st:      0
+  mean_stdep_by_exercise_angina_slope_st:   0
+  mean_age_by_exercise_angina_slope_st:     0
+
+  # Distance-to-Mean
+  bp_minus_mean_bp_by_agebin_sex:         1
+  chol_minus_mean_chol_by_agebin_sex:     1
+  hr_minus_mean_hr_by_agebin_sex:         1
+  stdep_minus_mean_stdep_by_agebin_sex:   1
+
+  # Percentile Ranks
+  pct_rank_bp_within_agebin_sex:      1
+  pct_rank_chol_within_agebin_sex:    1
+  pct_rank_hr_within_agebin_sex:      1
+  pct_rank_stdep_within_agebin_sex:   1
+
+  # Target Encodings
+  te_chest_pain:            1
+  te_thallium:              1
+  te_ekg:                   1
+  te_sex_chest_pain:        1
+  te_sex_thallium:          1
+  te_chest_pain_thallium:   1

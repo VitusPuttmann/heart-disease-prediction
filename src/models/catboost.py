@@ -17,6 +17,15 @@ from sklearn.metrics import roc_auc_score
 CatFeatureSpec = Sequence[Union[int, str]]
 
 
+def cat_feature_indices_after_preprocessing(
+    train_Xp: pd.DataFrame,
+    cat_cols: Sequence[str]
+) -> list[int]:
+    return [
+        train_Xp.columns.get_loc(c) for c in cat_cols if c in train_Xp.columns
+    ]
+
+
 def _infer_cat_features(X: Any) -> Optional[list[str]]:
     if not isinstance(X, pd.DataFrame):
         return None

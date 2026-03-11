@@ -30,16 +30,11 @@ def _infer_cat_features(X: Any) -> Optional[list[str]]:
 
 
 def _sanitize_lgbm_feature_names(columns):
-    """
-    LightGBM does not allow special JSON characters in feature names.
-    Replace everything except [0-9a-zA-Z_] with underscore and deduplicate.
-    """
     clean = []
     for c in columns:
         c2 = re.sub(r"[^0-9a-zA-Z_]+", "_", str(c))
         clean.append(c2 if c2 else "f")
 
-    # ensure uniqueness
     seen = {}
     final = []
     for c in clean:
@@ -56,10 +51,9 @@ def _sanitize_lgbm_feature_names(columns):
 def _as_dataset(
     X: Any,
     y: Optional[Any] = None,
-    cat_features: Optional[CatFeatureSpec] = None,
-) -> lgb.Dataset:  # type: ignore
+    cat_features: Optional[CatFeatureSpec] = None
+) -> lgb.Dataset:
 
-    # --- sanitize feature names if DataFrame ---
     if isinstance(X, pd.DataFrame):
         X = X.copy()
         X.columns = _sanitize_lgbm_feature_names(X.columns)
@@ -68,110 +62,69 @@ def _as_dataset(
         cat_features = _infer_cat_features(X)
 
     if y is None:
-        return lgb.Dataset(  # type: ignore
+        return lgb.Dataset(
             X,
             free_raw_data=False,
-            categorical_feature=cat_features,  # type: ignore
+            categorical_feature=cat_features
         )
 
-    return lgb.Dataset(  # type: ignore
+    return lgb.Dataset(
         X,
         label=y,
         free_raw_data=False,
-        categorical_feature=cat_features,  # type: ignore
+        categorical_feature=cat_features
     )
-
-
-def build_monotone_constraints(
-    X: Any,
-    mono_spec: Dict[str, int],
-) -> Optional[list[int]]:
-    if not isinstance(X, pd.DataFrame):
-        return None
-    
-    feature_names = list(X.columns)
-    cons: list[int] = []
-
-    for col in feature_names:
-        sign = 0
-        for base, s in mono_spec.items():
-            if col == base or col.startswith(base + "_"):
-                sign = int(s)
-                break
-        cons.append(sign)
-
-    return cons
 
 
 def fit_lightgbm(
     train_X: Any,
     train_y: Any,
     base_params: Dict[str, object],
-    cat_features: Optional[CatFeatureSpec] = None,
-    mono_spec: Optional[Dict[str, int]] = None,
-) -> lgb.Booster:  # type: ignore
+    cat_features: Optional[CatFeatureSpec] = None
+) -> lgb.Booster:
     params: Dict[str, object] = dict(base_params)
 
-    params.pop("one_hot", None)
-
-    params.setdefault("objective", "binary")
-    params.setdefault("metric", "auc")
-    params.setdefault("verbosity", -1)
-
-    # --- monotone constraints ---
-    if mono_spec is not None and params.get("monotone_constraints") is None:
-        cons = build_monotone_constraints(train_X, mono_spec)
-        if cons is not None:
-            params["monotone_constraints"] = cons
-            params.setdefault("monotone_constraints_method", "advanced")
-    # ----------------------------
-
-    num_boost_round = int(params.pop("num_boost_round", params.pop("n_estimators", 200)))  # type: ignore
-    early_stopping_rounds = params.pop("early_stopping_rounds", None)
+    del params["one_hot"]
+    num_boost_round = int(params["num_boost_round"])
+    del params["num_boost_round"]
 
     train_ds = _as_dataset(train_X, train_y, cat_features=cat_features)
 
-    callbacks = []
-    if early_stopping_rounds is not None:
-        callbacks.append(lgb.early_stopping(int(early_stopping_rounds), verbose=False))  # type: ignore
-
-    model = lgb.train(  # type: ignore
+    model = lgb.train(
         params=params,
         train_set=train_ds,
         num_boost_round=num_boost_round,
         valid_sets=None,
-        callbacks=callbacks if callbacks else None,
+        callbacks=None
     )
     return model
 
 
 def evaluate_lightgbm(
-    model: lgb.Booster, # type: ignore
+    model: lgb.Booster,
     val_X: Any,
-    val_y: Union[pd.Series, Any],
-    cat_features: Optional[CatFeatureSpec] = None,
+    val_y: Union[pd.Series, Any]
 ) -> pd.DataFrame:
     y_proba = model.predict(val_X)
 
     y_true = val_y.to_numpy() if isinstance(val_y, pd.Series) else val_y
-    auc = roc_auc_score(y_true, y_proba) # type: ignore
+    auc = roc_auc_score(y_true, y_proba)
 
     return pd.DataFrame([[auc]], columns=["AUC"])
 
 
 def predict_lightgbm(
-    model: lgb.Booster, # type: ignore
-    test_X: Any,
-    cat_features: Optional[CatFeatureSpec] = None,
+    model: lgb.Booster,
+    test_X: Any
 ) -> pd.Series:
     proba = model.predict(test_X)
     return pd.Series(proba, name="proba")
 
 
 def store_lightgbm(
-    model: lgb.Booster, # type: ignore
+    model: lgb.Booster,
     filepath: Path,
-    model_name: str,
+    model_name: str
 ) -> None:
     path = filepath / f"{model_name}.txt"
     model.save_model(str(path))

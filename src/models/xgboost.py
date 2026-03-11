@@ -9,15 +9,14 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import pandas as pd
-
+from sklearn.metrics import roc_auc_score
 import xgboost as xgb
 from xgboost import Booster
-from sklearn.metrics import roc_auc_score
 
 
 def _as_dmatrix(
     X: Any,
-    y: Optional[Any] = None,
+    y: Optional[Any] = None
 ) -> xgb.DMatrix:
     if y is None:
         return xgb.DMatrix(X)
@@ -27,7 +26,7 @@ def _as_dmatrix(
 def fit_xgboost(
     train_X: Any,
     train_y: Any,
-    base_params: Dict[str, object],
+    base_params: Dict[str, object]
 ) -> Booster:
     params = dict(base_params)
 
@@ -49,7 +48,7 @@ def fit_xgboost(
 def evaluate_xgboost(
     model: Booster,
     val_X: Any,
-    val_y: Union[pd.Series, Any],
+    val_y: Union[pd.Series, Any]
 ) -> pd.DataFrame:
     dval = _as_dmatrix(val_X)
     y_proba = model.predict(dval)
@@ -62,7 +61,7 @@ def evaluate_xgboost(
 
 def predict_xgboost(
     model: Booster,
-    test_X: Any,
+    test_X: Any
 ) -> pd.Series:
     dtest = _as_dmatrix(test_X)
     proba = model.predict(dtest)
@@ -72,7 +71,7 @@ def predict_xgboost(
 def store_xgboost(
     model: Booster,
     filepath: Path,
-    model_name: str,
+    model_name: str
 ) -> None:
     path = filepath / f"{model_name}.json"
     model.save_model(str(path))

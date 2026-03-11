@@ -4,12 +4,10 @@ CV splitter and iterator for cross-validation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Iterator, Tuple
 
 import numpy as np
 import pandas as pd
-
 from sklearn.model_selection import StratifiedKFold, KFold
 
 
@@ -40,7 +38,9 @@ def iter_cv_folds(
     X_dummy = np.zeros(len(df))
 
     split_iter = (
-        splitter.split(X_dummy, y) if cfg["stratify"] else splitter.split(X_dummy) # type: ignore
+        splitter.split(
+            X_dummy, y
+        ) if cfg["stratify"] else splitter.split(X_dummy)
     )
 
     for fold_idx, (train_idx, val_idx) in enumerate(split_iter, start=1):

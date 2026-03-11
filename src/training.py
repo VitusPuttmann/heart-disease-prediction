@@ -1,5 +1,5 @@
 """
-Function for training the ML models.
+Function for splitting a dataset into features and target.
 """
 
 import pandas as pd

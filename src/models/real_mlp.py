@@ -31,7 +31,7 @@ def _build_model(n_features: int, params: dict) -> keras.Model:
         if drop > 0:
             h = layers.Dropout(drop)(h)
 
-        if use_residual and x.shape[-1] == units: # type: ignore
+        if use_residual and x.shape[-1] == units:
             x = layers.Add()([x, h])
         else:
             x = h
@@ -74,7 +74,7 @@ def fit_realmlp(
         X, y,
         batch_size=int(params["batch_size"]),
         epochs=int(params["epochs"]),
-        verbose=int(params["verbose"]) #type: ignore
+        verbose=int(params["verbose"])
     )
 
     return model
@@ -92,7 +92,7 @@ def evaluate_realmlp(
     X = val_X.to_numpy(dtype=np.float32)
     y = val_y.to_numpy(dtype=np.float32).reshape(-1, 1)
 
-    loss, auc = model.evaluate(X, y, verbose=2)  # type: ignore
+    loss, auc = model.evaluate(X, y, verbose=2)
 
     return pd.DataFrame([[float(auc)]], columns=["AUC"])
 
@@ -107,7 +107,7 @@ def predict_realmlp(
     """
 
     X = test_X.to_numpy(dtype=np.float32)
-    y_pred = model.predict(X, verbose=1).reshape(-1)  # type: ignore
+    y_pred = model.predict(X, verbose=1).reshape(-1)
 
     return pd.Series(y_pred)
 

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 import keras
 from keras import layers
 
@@ -76,7 +75,7 @@ def evaluate_neuralnet(
     X = val_X.to_numpy(dtype=np.float32)
     y = val_y.to_numpy(dtype=np.float32).reshape(-1, 1)
 
-    loss, auc = model.evaluate(X, y, verbose=2)  # type: ignore
+    loss, auc = model.evaluate(X, y, verbose=2)
 
     scores = pd.DataFrame(
         [[float(auc)]],
@@ -96,7 +95,7 @@ def predict_neuralnet(
     """
 
     X = test_X.to_numpy(dtype=np.float32)
-    y_pred = model.predict(X, verbose=1).reshape(-1) # type: ignore
+    y_pred = model.predict(X, verbose=1).reshape(-1)
 
     return pd.Series(y_pred)
 

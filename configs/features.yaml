@@ -1,6 +1,7 @@
 # Features of the ML project
 
-# Original features
+## Original features
+
 id:
   description: unique id as running number
   source: original
@@ -10,6 +11,7 @@ id:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 age:
   description: age of patient in years
   source: original
@@ -19,6 +21,7 @@ age:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 sex:
   description: gender of patient
   source: original
@@ -30,6 +33,7 @@ sex:
   values:
     female: 0
     male: 1
+
 chest_pain:
   description: type of chest pain
   source: original
@@ -43,6 +47,7 @@ chest_pain:
     atypical angina: 2
     non-anginal pain: 3
     asymptomatic: 4
+
 blood_pressure:
   description: resting blood pressure in millimeters of mercury
   source: original
@@ -52,6 +57,7 @@ blood_pressure:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 cholesterol:
   description: serum cholesterol level in milligrams per deciliter
   source: original
@@ -61,6 +67,7 @@ cholesterol:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 rest_blood_sugar:
   description: fasting blood sugar greater than 120 milligrams per deciliter
   source: original
@@ -72,6 +79,7 @@ rest_blood_sugar:
   values:
     "false": 0
     "true": 1
+
 ekg:
   description: resting electrocardiogram results
   source: original
@@ -84,6 +92,7 @@ ekg:
     normal: 0
     st-t wave abnormality: 1
     left ventricular hypertrophy: 2
+
 max_hr:
   description: maximum heart rate achieved
   source: original
@@ -93,6 +102,7 @@ max_hr:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 exercise_angina:
   description: exercise-induced angina
   source: original
@@ -104,6 +114,7 @@ exercise_angina:
   values:
     no: 0
     yes: 1
+
 st_depression:
   description: st segment depression induced by exercise relative to rest
   source: original
@@ -113,6 +124,7 @@ st_depression:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 slope_st:
   description: slope of the peak exercise ST segment
   source: original
@@ -122,6 +134,7 @@ slope_st:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 number_vessels:
   description: number of major vessels colored by fluoroscopy
   source: original
@@ -135,6 +148,7 @@ number_vessels:
     one: 1
     two: 2
     three: 3
+
 thallium:
   description: Thallium stress test result (categorical medical indicator)
   source: original
@@ -147,6 +161,7 @@ thallium:
     normal: 3
     fixed defect: 6
     reversible defect: 7
+
 pred_max_hr:
   description: predicted maximum heart rate based on age (220 - age)
   source: engineered
@@ -156,6 +171,7 @@ pred_max_hr:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 hr_ratio:
   description: ratio of observed max heart rate to age-predicted max heart rate (max_hr / pred_max_hr)
   source: engineered
@@ -165,6 +181,7 @@ hr_ratio:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 hr_deficit:
   description: difference between age-predicted max heart rate and observed max heart rate (pred_max_hr - max_hr)
   source: engineered
@@ -174,6 +191,7 @@ hr_deficit:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 st_per_hr:
   description: ST depression normalized by max heart rate (st_depression / (max_hr + 1))
   source: engineered
@@ -183,6 +201,7 @@ st_per_hr:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 st_x_hr_ratio:
   description: interaction of ST depression with heart-rate ratio (st_depression * hr_ratio)
   source: engineered
@@ -192,6 +211,7 @@ st_x_hr_ratio:
   type_raw: numeric
   type_clean: numeric
   values: null
+
 high_bp:
   description: blood pressude equal to or above 140
   source: engineered
@@ -203,6 +223,7 @@ high_bp:
   values:
     no: 0
     yes: 1
+
 chol_high:
   description: cholesterol at or above threshold (default 240 mg/dL or fitted quantile threshold)
   source: engineered
@@ -214,6 +235,7 @@ chol_high:
   values:
     no: 0
     yes: 1
+
 fbs_high:
   description: fasting blood sugar over 120
   source: engineered
@@ -225,6 +247,7 @@ fbs_high:
   values:
     no: 0
     yes: 1
+
 risk_count:
   description: additive risk count
   source: engineered
@@ -235,8 +258,10 @@ risk_count:
   type_clean: numeric
   values: null
 
-# Interaction terms
+## Interaction terms
+
 interactions:
+
 # Age
   - name: age_x_sex
     vars: [age, sex]
@@ -250,6 +275,7 @@ interactions:
     vars: [age, number_vessels]
   - name: age_x_thallium
     vars: [age, thallium]
+
 # Sex
   - name: sex_x_chest_pain
     vars: [sex, chest_pain]
@@ -267,6 +293,7 @@ interactions:
     vars: [sex, number_vessels]
   - name: sex_x_thallium
     vars: [sex, thallium]
+
 # Chest pain
   - name: chest_pain_x_cholesterol
     vars: [chest_pain, cholesterol]
@@ -286,6 +313,7 @@ interactions:
     vars: [chest_pain, number_vessels]
   - name: chest_pain_x_thallium
     vars: [chest_pain, thallium]
+
 # Blood sugar
   - name: rest_blood_sugar_x_st_depression
     vars: [rest_blood_sugar, st_depression]
@@ -295,6 +323,7 @@ interactions:
     vars: [rest_blood_sugar, number_vessels]
   - name: rest_blood_sugar_x_thallium
     vars: [rest_blood_sugar, thallium]
+
 # EKG results
   - name: ekg_x_max_hr
     vars: [ekg, max_hr]
@@ -308,6 +337,7 @@ interactions:
     vars: [ekg, number_vessels]
   - name: ekg_x_thallium
     vars: [ekg, thallium]
+
 # Heart rate
   - name: max_hr_x_exercise_angina
     vars: [max_hr, exercise_angina]
@@ -319,6 +349,7 @@ interactions:
     vars: [max_hr, number_vessels]
   - name: max_hr_x_thallium
     vars: [max_hr, thallium]
+
 # Exercise angina
   - name: exercise_angina_x_st_depression
     vars: [exercise_angina, st_depression]
@@ -328,6 +359,7 @@ interactions:
     vars: [exercise_angina, number_vessels]
   - name: exercise_angina_x_thallium
     vars: [exercise_angina, thallium]
+
 # ST depression
   - name: st_depression_x_slope_st
     vars: [st_depression, slope_st]
@@ -335,17 +367,21 @@ interactions:
     vars: [st_depression, number_vessels]
   - name: st_depression_x_thallium
     vars: [st_depression, thallium]
+
 # Slope ST
   - name: slope_st_x_number_vessels
     vars: [slope_st, number_vessels]
   - name: slope_st_x_thallium
     vars: [slope_st, thallium]
+
 # Number vessels
   - name: number_vessels_x_thallium
     vars: [number_vessels, thallium]
+
 # ST per heart rate
   - name: st_per_hr_x_exercise_angina
     vars: [st_per_hr, exercise_angina]
+
 # Heart rate deficit
   - name: hr_deficit_x_exercise_angina
     vars: [hr_deficit, exercise_angina]

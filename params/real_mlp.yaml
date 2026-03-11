@@ -1,4 +1,4 @@
-# Configuration for the RealMLP (tabular-focused MLP)
+# Configuration for the RealMLP
 hidden_units:
   - 256
   - 256
