@@ -10,6 +10,18 @@ pipeline.
 Competition page:
 https://www.kaggle.com/competitions/playground-series-s6e2/overview
 
+## Requirements
+
+- Python 3.13
+
+## Data files required
+
+For the project to run, place the Kaggle raw datasets in `data/raw/` with these
+exact filenames:
+
+- `train.csv`
+- `test.csv`
+
 ## Project overview
 
 The training pipeline in this project supports:
